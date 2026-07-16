@@ -14,17 +14,31 @@ export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("hub.verify_token");
   const challenge = req.nextUrl.searchParams.get("hub.challenge");
 
+  console.log("========== WEBHOOK VERIFY ==========");
+  console.log("MODE:", mode);
+  console.log("TOKEN FROM META:", token);
+  console.log("TOKEN FROM ENV:", process.env.VERIFY_TOKEN);
+  console.log("CHALLENGE:", challenge);
+
   if (
     mode === "subscribe" &&
     token === process.env.VERIFY_TOKEN
   ) {
-    return new NextResponse(challenge, { status: 200 });
+    console.log("✅ Verification Success");
+
+    return new Response(challenge!, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
   }
 
-  return NextResponse.json(
-    { error: "Verification failed" },
-    { status: 403 }
-  );
+  console.log("❌ Verification Failed");
+
+  return new Response("Verification failed", {
+    status: 403,
+  });
 }
 
 export async function POST(req: NextRequest) {
