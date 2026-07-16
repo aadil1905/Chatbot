@@ -10,13 +10,24 @@ const client = new OpenAI({
 const conversations: Record<string, any[]> = {};
 
 export async function GET(req: NextRequest) {
+  const mode = req.nextUrl.searchParams.get("hub.mode");
+  const token = req.nextUrl.searchParams.get("hub.verify_token");
   const challenge = req.nextUrl.searchParams.get("hub.challenge");
 
-  return new Response(challenge || "OK", {
-    status: 200,
-    headers: {
-      "Content-Type": "text/plain",
-    },
+  if (
+    mode === "subscribe" &&
+    token === process.env.VERIFY_TOKEN
+  ) {
+    return new Response(challenge!, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+  }
+
+  return new Response("Forbidden", {
+    status: 403,
   });
 }
 
