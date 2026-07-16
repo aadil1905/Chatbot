@@ -10,34 +10,13 @@ const client = new OpenAI({
 const conversations: Record<string, any[]> = {};
 
 export async function GET(req: NextRequest) {
-  const mode = req.nextUrl.searchParams.get("hub.mode");
-  const token = req.nextUrl.searchParams.get("hub.verify_token");
   const challenge = req.nextUrl.searchParams.get("hub.challenge");
 
-  console.log("========== WEBHOOK VERIFY ==========");
-  console.log("MODE:", mode);
-  console.log("TOKEN FROM META:", token);
-  console.log("TOKEN FROM ENV:", process.env.VERIFY_TOKEN);
-  console.log("CHALLENGE:", challenge);
-
-  if (
-    mode === "subscribe" &&
-    token === process.env.VERIFY_TOKEN
-  ) {
-    console.log("✅ Verification Success");
-
-    return new Response(challenge!, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/plain",
-      },
-    });
-  }
-
-  console.log("❌ Verification Failed");
-
-  return new Response("Verification failed", {
-    status: 403,
+  return new Response(challenge || "OK", {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain",
+    },
   });
 }
 
