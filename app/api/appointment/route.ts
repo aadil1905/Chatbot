@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
     console.log("=====================================");
 await prisma.appointment.create({
   data: {
-    name,
+    patientName: name,
     phone,
-    date,
-    time,
-    reason: problem,
+    appointmentDate: new Date(date),
+    appointmentTime: time,
+    treatment: problem,
   },
 });
     return NextResponse.json({

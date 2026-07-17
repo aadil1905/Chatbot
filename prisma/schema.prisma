@@ -3,16 +3,20 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Appointment {
-  id        Int      @id @default(autoincrement())
-  name      String
-  phone     String
-  date      String
-  time      String
-  reason    String
-  createdAt DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  patientName     String
+  phone           String
+  appointmentDate DateTime
+  appointmentTime String
+  treatment       String
+  status          String   @default("Pending")
+  source          String   @default("WhatsApp")
+  notes           String?
+  createdAt       DateTime @default(now())
 }

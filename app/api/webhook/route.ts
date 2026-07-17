@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  console.log("WEBHOOK HIT");
   try {
     const body = await req.json();
 
@@ -186,17 +187,18 @@ if (bookings[from]) {
       return NextResponse.json({ received: true });
 
     case "reason":
+      console.log("Reached reason step");
       booking.reason = userMessage;
 
       await prisma.appointment.create({
-        data: {
-          name: booking.name,
-          phone: booking.phone,
-          date: booking.date,
-          time: booking.time,
-          reason: booking.reason,
-        },
-      });
+  data: {
+    patientName: booking.name,
+    phone: booking.phone,
+    appointmentDate: new Date(booking.date),
+    appointmentTime: booking.time,
+    treatment: booking.reason,
+  },
+});
 
       delete bookings[from];
 
@@ -307,9 +309,11 @@ I'm the Smile Dental Clinic assistant, so I can only help with dental care and a
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook Error:", error);
+  console.error("========== WEBHOOK ERROR ==========");
+  console.error(error);
+  console.error("===================================");
 
-    return NextResponse.json(
+  return NextResponse.json(
       {
         success: false,
         error: String(error),
