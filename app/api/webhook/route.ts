@@ -1,13 +1,19 @@
-import OpenAI from "openai";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { bookings } from "@/lib/booking";
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import {
+  sendReplyButtons,
+  sendTextMessage,
+} from "@/lib/whatsapp";
+import {
+  bookings,
+  clearBooking,
+  continueBooking,
+  hasBooking,
+  startBooking,
+} from "@/lib/booking";
+import { getAIReply, clearConversation } from "@/lib/ai";
+import { detectIntent } from "@/lib/intent";
 
-// Temporary memory (resets when server restarts)
-const conversations: Record<string, any[]> = {};
+console.log("Webhook route loaded");
 
 export async function GET(req: NextRequest) {
   const mode = req.nextUrl.searchParams.get("hub.mode");
@@ -32,11 +38,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  console.log("WEBHOOK HIT");
   try {
     const body = await req.json();
-
-    console.log("Webhook:", JSON.stringify(body, null, 2));
 
     const message =
       body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
@@ -46,274 +49,131 @@ export async function POST(req: NextRequest) {
     }
 
     const from = message.from;
-    const userMessage = message.text?.body ?? "";
-const text = userMessage.toLowerCase();
-   // Start appointment booking
-if (
-  text.includes("appointment") ||
-  text.includes("book")
-) {
-  bookings[from] = {
-    step: "name",
-    name: "",
-    phone: "",
-    date: "",
-    time: "",
-    reason: "",
-  };
 
-  await fetch(
-    `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: from,
-        text: {
-          body: "Sure! Let's book your appointment.\n\nWhat is your full name?",
-        },
-      }),
-    }
-  );
-return NextResponse.json({ received: true });
-}
+    let userMessage = "";
 
-
- // Continue booking
-if (bookings[from]) {
-  const booking = bookings[from];
-
-  switch (booking.step) {
-    case "name":
-      booking.name = userMessage;
-      booking.step = "phone";
-
-      await fetch(
-        `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: from,
-            text: {
-              body: "Please enter your phone number.",
-            },
-          }),
-        }
-      );
-
-      return NextResponse.json({ received: true });
-    
-
-
-    case "phone":
-      booking.phone = userMessage;
-      booking.step = "date";
-
-      await fetch(
-        `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: from,
-            text: {
-              body: "What date would you like your appointment?",
-            },
-          }),
-        }
-      );
-
-      return NextResponse.json({ received: true });
-
-    case "date":
-      booking.date = userMessage;
-      booking.step = "time";
-
-      await fetch(
-        `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: from,
-            text: {
-              body: "What time would you prefer?",
-            },
-          }),
-        }
-      );
-
-      return NextResponse.json({ received: true });
-
-    case "time":
-      booking.time = userMessage;
-      booking.step = "reason";
-
-      await fetch(
-        `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: from,
-            text: {
-              body: "What is the reason for your visit?",
-            },
-          }),
-        }
-      );
-
-      return NextResponse.json({ received: true });
-
-    case "reason":
-      console.log("Reached reason step");
-      booking.reason = userMessage;
-
-      await prisma.appointment.create({
-  data: {
-    patientName: booking.name,
-    phone: booking.phone,
-    appointmentDate: new Date(booking.date),
-    appointmentTime: booking.time,
-    treatment: booking.reason,
-  },
-});
-
-      delete bookings[from];
-
-      await fetch(
-        `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: from,
-            text: { 
-              
-              body: "✅ Thank you! Your appointment request has been received. Our clinic will contact you shortly.",
-            },
-          }),
-        }
-      );
-
-      return NextResponse.json({ received: true });
-
-
-    
-
- 
-  }
-}
-      if (!conversations[from]) {
-  conversations[from] = [
-        {
-          role: "system",
-          content: `
-You are Smile Dental Clinic's AI assistant.
-
-Rules:
-- Answer only dental-related questions.
-- Be friendly and professional.
-- Keep WhatsApp replies short.
-- Never prescribe medicine.
-- Never claim to diagnose disease.
-
-If the user wants an appointment, collect:
-1. Full Name
-2. Phone Number
-3. Preferred Date
-4. Preferred Time
-5. Reason for Visit
-
-Ask ONLY ONE question at a time.
-
-After collecting all details reply exactly:
-
-Thank you. Your appointment request has been received. Our clinic will contact you shortly to confirm your appointment.
-
-If the question is unrelated to dentistry, reply:
-
-I'm the Smile Dental Clinic assistant, so I can only help with dental care and appointments.
-`,
-        },
-      ];
+    // Text message
+    if (message.type === "text") {
+      userMessage = message.text?.body ?? "";
     }
 
-    conversations[from].push({
-      role: "user",
-      content: userMessage,
-    });
+    // Interactive Button
+    else if (
+      message.type === "interactive" &&
+      message.interactive?.type === "button_reply"
+    ) {
+      userMessage =
+        message.interactive.button_reply.id;
+    }
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: conversations[from],
-    });
+    // Interactive List
+    else if (
+      message.type === "interactive" &&
+      message.interactive?.type === "list_reply"
+    ) {
+      userMessage =
+        message.interactive.list_reply.id;
+    }
 
-    const aiReply =
-      completion.choices[0].message.content ??
-      "Sorry, I couldn't generate a response.";
+    else {
+      return NextResponse.json({
+        received: true,
+      });
+    }
 
-    conversations[from].push({
-      role: "assistant",
-      content: aiReply,
-    });
+    const normalized =
+      userMessage.toLowerCase().trim();
 
-    console.log("AI Reply:", aiReply);
+    // Restart
+    if (
+      ["hi", "hello", "hey", "menu", "start"].includes(
+        normalized
+      )
+    ) {
+      clearBooking(from);
+      clearConversation(from);
 
-    const response = await fetch(
-      `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: from,
-          text: {
-            body: aiReply,
+      await sendReplyButtons(
+        from,
+        "👋 Welcome to AI Patient Concierge\n\nHow can I help you today?",
+        [
+          {
+            id: "BOOK_APPOINTMENT",
+            title: "📅 Book",
           },
-        }),
-      }
+          {
+            id: "SERVICES",
+            title: "🩺 Services",
+          },
+          {
+            id: "CONTACT",
+            title: "📞 Contact",
+          },
+        ]
+      );
+
+      return NextResponse.json({
+        received: true,
+      });
+    }
+
+    // Cancel
+    if (
+      normalized === "cancel" ||
+      normalized === "cancel_booking"
+    ) {
+      clearBooking(from);
+
+      await sendTextMessage(
+        from,
+        "❌ Booking cancelled."
+      );
+
+      return NextResponse.json({
+        received: true,
+      });
+    }
+
+    // Continue booking
+    if (hasBooking(from)) {
+      await continueBooking(from, userMessage);
+
+      return NextResponse.json({
+        received: true,
+      });
+    }
+
+    // Book button
+    if (
+      userMessage === "BOOK_APPOINTMENT" ||
+      detectIntent(userMessage) ===
+        "BOOK_APPOINTMENT"
+    ) {
+      await startBooking(from);
+
+      return NextResponse.json({
+        received: true,
+      });
+    }
+
+    // AI Conversation
+    const aiReply = await getAIReply(
+      from,
+      userMessage
     );
 
-    const result = await response.json();
+    await sendTextMessage(
+      from,
+      aiReply.message
+    );
 
-    console.log("WhatsApp Response:", result);
-
-    return NextResponse.json({ received: true });
+    return NextResponse.json({
+      received: true,
+    });
   } catch (error) {
-  console.error("========== WEBHOOK ERROR ==========");
-  console.error(error);
-  console.error("===================================");
+    console.error(error);
 
-  return NextResponse.json(
+    return NextResponse.json(
       {
         success: false,
         error: String(error),
