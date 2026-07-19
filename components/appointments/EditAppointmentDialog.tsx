@@ -120,11 +120,9 @@ export default function EditAppointmentDialog({
       open={open}
       onOpenChange={setOpen}
     >
-      <DialogTrigger>
-  <Button variant="outline">
-    Edit
-  </Button>
-</DialogTrigger>
+      <DialogTrigger
+        render={<Button variant="outline">Edit</Button>}
+      />
 
       <DialogContent className="sm:max-w-xl">
 

@@ -7,6 +7,7 @@ import {
   Users,
   Settings,
   ClipboardList,
+  Stethoscope,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -44,6 +45,14 @@ export default function Sidebar() {
         >
           <Users size={20} />
           Patients
+        </Link>
+
+        <Link href="/dashboard/clinical-records" className="flex items-center gap-3 rounded-lg p-3 hover:bg-blue-50 transition">
+          <Stethoscope size={20} /> Clinical Records
+        </Link>
+
+        <Link href="/dashboard/treatment-plans" className="flex items-center gap-3 rounded-lg p-3 hover:bg-blue-50 transition">
+          <ClipboardList size={20} /> Treatment Plans
         </Link>
 
         <Link

@@ -37,6 +37,36 @@ model Patient {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
+  clinicalRecords ClinicalRecord[]
+  treatmentPlans  TreatmentPlan[]
 
   @@index([fullName])
+}
+
+model ClinicalRecord {
+  id             Int      @id @default(autoincrement())
+  patientId      Int
+  visitDate      DateTime @default(now())
+  chiefComplaint String
+  diagnosis      String?
+  clinicalNotes  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, visitDate])
+}
+
+model TreatmentPlan {
+  id            Int      @id @default(autoincrement())
+  patientId     Int
+  title         String
+  status        String   @default("Proposed")
+  estimatedCost Int?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, status])
 }

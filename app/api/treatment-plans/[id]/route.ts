@@ -1,0 +1,7 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { treatmentPlanSchema } from "@/lib/validations";
+import { ZodError } from "zod";
+async function getId(params: Promise<{ id: string }>) { const { id } = await params; const value = Number(id); return Number.isInteger(value) && value > 0 ? value : null; }
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) { try { const id = await getId(params); if (!id) return NextResponse.json({ error: "Invalid plan id." }, { status: 400 }); const data = treatmentPlanSchema.partial().parse(await request.json()); const plan = await prisma.treatmentPlan.update({ where: { id }, data: { ...data, estimatedCost: data.estimatedCost === "" ? null : data.estimatedCost, notes: data.notes === "" ? null : data.notes } }); return NextResponse.json(plan); } catch (error) { if (error instanceof ZodError) return NextResponse.json({ error: "Validation failed." }, { status: 400 }); return NextResponse.json({ error: "Plan not found or could not be updated." }, { status: 404 }); } }
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) { const id = await getId(params); if (!id) return NextResponse.json({ error: "Invalid plan id." }, { status: 400 }); try { await prisma.treatmentPlan.delete({ where: { id } }); return NextResponse.json({ success: true }); } catch { return NextResponse.json({ error: "Plan not found." }, { status: 404 }); } }

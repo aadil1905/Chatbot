@@ -42,3 +42,19 @@ export const patientSchema = z.object({
 });
 
 export type PatientFormValues = z.infer<typeof patientSchema>;
+
+export const clinicalRecordSchema = z.object({
+  patientId: z.coerce.number().int().positive(),
+  visitDate: z.string().date(),
+  chiefComplaint: z.string().trim().min(2, "Chief complaint is required").max(1000),
+  diagnosis: z.string().max(1000).optional(),
+  clinicalNotes: z.string().max(5000).optional(),
+});
+
+export const treatmentPlanSchema = z.object({
+  patientId: z.coerce.number().int().positive(),
+  title: z.string().trim().min(2, "Plan title is required").max(200),
+  status: z.enum(["Proposed", "Accepted", "In Progress", "Completed", "Cancelled"]),
+  estimatedCost: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
+  notes: z.string().max(5000).optional(),
+});
