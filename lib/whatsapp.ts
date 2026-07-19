@@ -5,24 +5,42 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+async function sendRequest(payload: any) {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("WhatsApp API Error");
+    console.error(JSON.stringify(data, null, 2));
+
+    throw new Error(
+      data?.error?.message ||
+      "Failed to send WhatsApp message"
+    );
+  }
+
+  return data;
+}
+
 export async function sendTextMessage(
   to: string,
   message: string
 ) {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "text",
-      text: {
-        body: message,
-      },
-    }),
+  return sendRequest({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "text",
+    text: {
+      preview_url: false,
+      body: message,
+    },
   });
-
-  return response.json();
 }
 
 export async function sendReplyButtons(
@@ -33,32 +51,27 @@ export async function sendReplyButtons(
     title: string;
   }[]
 ) {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "button",
-        body: {
-          text: bodyText,
-        },
-        action: {
-          buttons: buttons.map((button) => ({
-            type: "reply",
-            reply: {
-              id: button.id,
-              title: button.title,
-            },
-          })),
-        },
+  return sendRequest({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: {
+        text: bodyText,
       },
-    }),
+      action: {
+        buttons: buttons.slice(0, 3).map((button) => ({
+          type: "reply",
+          reply: {
+            id: button.id,
+            title: button.title.substring(0, 20),
+          },
+        })),
+      },
+    },
   });
-
-  return response.json();
 }
 
 export async function sendListMessage(
@@ -74,25 +87,31 @@ export async function sendListMessage(
     }[];
   }[]
 ) {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "list",
-        body: {
-          text: bodyText,
-        },
-        action: {
-          button: buttonText,
-          sections,
-        },
+  return sendRequest({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      body: {
+        text: bodyText,
       },
-    }),
+      action: {
+        button: buttonText.substring(0, 20),
+        sections: sections.map((section) => ({
+          title: section.title.substring(0, 24),
+          rows: section.rows.map((row) => ({
+            id: row.id,
+            title: row.title.substring(0, 24),
+            ...(row.description
+              ? {
+                  description: row.description.substring(0, 72),
+                }
+              : {}),
+          })),
+        })),
+      },
+    },
   });
-
-  return response.json();
 }

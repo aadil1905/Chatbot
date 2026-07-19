@@ -81,15 +81,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const normalized =
-      userMessage.toLowerCase().trim();
+   const normalized = userMessage
+  .toLowerCase()
+  .trim()
+  .replace(/[^\w\s]/g, "");
 
-    // Restart
-    if (
-      ["hi", "hello", "hey", "menu", "start"].includes(
-        normalized
-      )
-    ) {
+const isGreeting =
+  /^hi+$/i.test(normalized) ||
+  /^hey+$/i.test(normalized) ||
+  /^hello+$/i.test(normalized) ||
+  normalized === "menu" ||
+  normalized === "start";
+
+if (isGreeting) {
       clearBooking(from);
       clearConversation(from);
 
