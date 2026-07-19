@@ -31,7 +31,7 @@ export default function Sidebar() {
         </Link>
 
         <Link
-          href="/appointments"
+          href="/dashboard/appointments"
           className="flex items-center gap-3 rounded-lg p-3 hover:bg-blue-50 transition"
         >
           <ClipboardList size={20} />

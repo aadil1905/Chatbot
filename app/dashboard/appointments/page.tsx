@@ -1,138 +1,102 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
-import AppointmentSearch from "@/components/AppointmentSearch";
-import Link from "next/link";
+import AppointmentFilters from "@/components/appointments/AppointmentFilters";
+import AppointmentPagination from "@/components/appointments/AppointmentPagination";
+import StatusBadge from "@/components/appointments/StatusBadge";
 
-export default async function AppointmentsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    search?: string;
-    status?: string;
-  }>;
-}) {
+const PAGE_SIZE = 10;
+const sortOptions = {
+  newest: { createdAt: "desc" },
+  oldest: { createdAt: "asc" },
+  dateAsc: { appointmentDate: "asc" },
+  dateDesc: { appointmentDate: "desc" },
+} as const;
 
-  const {
-    search = "",
-    status = "",
-  } = await searchParams;
+type SearchParams = Promise<{
+  search?: string;
+  status?: string;
+  sort?: keyof typeof sortOptions;
+  page?: string;
+}>;
 
- const appointments = await prisma.appointment.findMany({
-  where: {
-    ...(search && {
+export default async function AppointmentsPage({ searchParams }: { searchParams: SearchParams }) {
+  const { search = "", status = "", sort = "dateAsc", page: pageParam = "1" } = await searchParams;
+  const page = Math.max(1, Number.parseInt(pageParam, 10) || 1);
+  const activeSort = sort in sortOptions ? sort : "dateAsc";
+  const where = {
+    ...(search.trim() && {
       OR: [
-        {
-          patientName: {
-            contains: search,
-            mode: "insensitive",
-          },
-        },
-        {
-          phone: {
-            contains: search,
-          },
-          
-        },
-        {
-  treatment: {
-    contains: search,
-    mode: "insensitive",
-  },
-},
+        { patientName: { contains: search.trim(), mode: "insensitive" as const } },
+        { phone: { contains: search.trim() } },
+        { treatment: { contains: search.trim(), mode: "insensitive" as const } },
       ],
     }),
+    ...(status && { status }),
+  };
 
-    ...(status && {
-      status,
+  const [total, appointments] = await prisma.$transaction([
+    prisma.appointment.count({ where }),
+    prisma.appointment.findMany({
+      where,
+      orderBy: sortOptions[activeSort],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
-  },
-
-  orderBy: {
-    createdAt: "desc",
-  },
-});
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Appointments</h1>
-        <p className="text-gray-500">
-          Live appointments from Supabase
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Appointments</h1>
+          <p className="mt-1 text-muted-foreground">Manage bookings created by your clinic and WhatsApp concierge.</p>
+        </div>
+        <Link href="/dashboard/appointments/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+          <Plus className="size-4" /> New appointment
+        </Link>
       </div>
 
-<AppointmentSearch />
+      <AppointmentFilters />
 
       <Card>
-        <CardContent className="p-6">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-3">Patient</th>
-                <th className="text-left p-3">Phone</th>
-                <th className="text-left p-3">Date</th>
-                <th className="text-left p-3">Time</th>
-                <th className="text-left p-3">Treatment</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-left p-3">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-  {appointments.length === 0 ? (
-    <tr>
-      <td
-        colSpan={6}
-        className="text-center p-6 text-gray-500"
-      >
-        No appointments found.
-      </td>
-    </tr>
-  ) : (
-    appointments.map((appointment) => (
-      <tr
-  key={appointment.id}
-  className="border-b hover:bg-gray-50 transition-colors"
->
-        <td className="p-3">{appointment.patientName}</td>
-        <td className="p-3">{appointment.phone}</td>
-        <td className="p-3">
-          {appointment.appointmentDate.toLocaleDateString()}
-        </td>
-        <td className="p-3">{appointment.appointmentTime}</td>
-        <td className="p-3">{appointment.treatment}</td>
-       <td className="p-3">
-  <span
-    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-      appointment.status === "Pending"
-        ? "bg-yellow-100 text-yellow-800"
-        : appointment.status === "Confirmed"
-        ? "bg-blue-100 text-blue-800"
-        : appointment.status === "Completed"
-        ? "bg-green-100 text-green-800"
-        : "bg-red-100 text-red-800"
-    }`}
-  >
-    {appointment.status}
-  </span>
-</td>
-
-<td className="p-3">
-  <Link
-    href={`/dashboard/appointments/${appointment.id}`}
-    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-  >
-    View
-  </Link>
-</td>
-
-      </tr>
-    ))
-  )}
-</tbody>
-          </table>
+        <CardContent className="p-0">
+          {appointments.length === 0 ? (
+            <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 text-center">
+              <div className="text-lg font-semibold">No appointments found</div>
+              <p className="max-w-sm text-sm text-muted-foreground">Try clearing a filter or create a new appointment to get started.</p>
+              <Link href="/dashboard/appointments/new" className="text-sm font-medium text-primary hover:underline">Create appointment</Link>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="border-b bg-muted/40 text-left text-muted-foreground">
+                    <tr>
+                      <th className="p-4 font-medium">Patient</th><th className="p-4 font-medium">Phone</th><th className="p-4 font-medium">Date & time</th><th className="p-4 font-medium">Treatment</th><th className="p-4 font-medium">Status</th><th className="p-4 font-medium"><span className="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.map((appointment) => (
+                      <tr key={appointment.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="p-4 font-medium">{appointment.patientName}</td>
+                        <td className="p-4 text-muted-foreground">{appointment.phone}</td>
+                        <td className="p-4"><div>{appointment.appointmentDate.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</div><div className="text-muted-foreground">{appointment.appointmentTime}</div></td>
+                        <td className="p-4">{appointment.treatment}</td>
+                        <td className="p-4"><StatusBadge status={appointment.status as "Pending" | "Confirmed" | "Completed" | "Cancelled"} /></td>
+                        <td className="p-4 text-right"><Link href={`/dashboard/appointments/${appointment.id}`} className="font-medium text-primary hover:underline">View</Link></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <AppointmentPagination page={Math.min(page, totalPages)} totalPages={totalPages} total={total} />
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

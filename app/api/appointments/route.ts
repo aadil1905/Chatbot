@@ -4,13 +4,13 @@ import { appointmentSchema } from "@/lib/validations";
 import { ZodError } from "zod";
 
 export async function GET() {
-  const appointments = await prisma.appointment.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  return NextResponse.json(appointments);
+  try {
+    const appointments = await prisma.appointment.findMany({ orderBy: { appointmentDate: "asc" } });
+    return NextResponse.json(appointments);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Failed to load appointments." }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
@@ -30,7 +30,7 @@ notes: data.notes,
   },
 });
 
- return NextResponse.json(appointment);
+ return NextResponse.json(appointment, { status: 201 });
   } catch (error) {
   console.error(error);
 

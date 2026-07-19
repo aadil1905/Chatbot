@@ -1,9 +1,11 @@
 import OpenAI from "openai";
 import { SYSTEM_PROMPT } from "./prompts";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
+  return new OpenAI({ apiKey });
+}
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -30,7 +32,7 @@ export async function getAIReply(
     content: message,
   });
 
-  const completion = await client.chat.completions.create({
+  const completion = await getClient().chat.completions.create({
     model: "gpt-4.1-mini",
     messages: conversations[userId],
     temperature: 0.7,

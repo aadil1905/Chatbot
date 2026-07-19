@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { appointmentSchema } from "@/lib/validations";
+import { ZodError } from "zod";
 
 type RouteContext = {
   params: Promise<{
@@ -13,47 +15,56 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const appointmentId = Number(id);
+    if (!Number.isInteger(appointmentId) || appointmentId < 1) {
+      return NextResponse.json({ error: "Invalid appointment id." }, { status: 400 });
+    }
 
     const body = await request.json();
+    const data = appointmentSchema.partial().parse(body);
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "No changes provided." }, { status: 400 });
+    }
 
     const appointment = await prisma.appointment.update({
       where: {
-        id: Number(id),
+        id: appointmentId,
       },
       data: {
         patientName:
-          body.patientName !== undefined
-            ? body.patientName
+          data.patientName !== undefined
+            ? data.patientName
             : undefined,
 
         phone:
-          body.phone !== undefined
-            ? body.phone
+          data.phone !== undefined
+            ? data.phone
             : undefined,
 
         appointmentDate:
-          body.appointmentDate !== undefined
-            ? new Date(body.appointmentDate)
+          data.appointmentDate !== undefined
+            ? new Date(data.appointmentDate)
             : undefined,
 
         appointmentTime:
-          body.appointmentTime !== undefined
-            ? body.appointmentTime
+          data.appointmentTime !== undefined
+            ? data.appointmentTime
             : undefined,
 
         treatment:
-          body.treatment !== undefined
-            ? body.treatment
+          data.treatment !== undefined
+            ? data.treatment
             : undefined,
 
         status:
-          body.status !== undefined
-            ? body.status
+          data.status !== undefined
+            ? data.status
             : undefined,
 
         notes:
-          body.notes !== undefined
-            ? body.notes
+          data.notes !== undefined
+            ? data.notes
             : undefined,
       },
     });
@@ -61,10 +72,12 @@ export async function PATCH(
     return NextResponse.json(appointment);
   } catch (error) {
     console.error(error);
-
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: "Validation failed.", issues: error.flatten() }, { status: 400 });
+    }
     return NextResponse.json(
-      { error: "Failed to update appointment." },
-      { status: 500 }
+      { error: "Appointment not found or could not be updated." },
+      { status: 404 }
     );
   }
 }
@@ -75,10 +88,14 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const appointmentId = Number(id);
+    if (!Number.isInteger(appointmentId) || appointmentId < 1) {
+      return NextResponse.json({ error: "Invalid appointment id." }, { status: 400 });
+    }
 
     await prisma.appointment.delete({
       where: {
-        id: Number(id),
+        id: appointmentId,
       },
     });
 
@@ -89,8 +106,8 @@ export async function DELETE(
     console.error(error);
 
     return NextResponse.json(
-      { error: "Failed to delete appointment." },
-      { status: 500 }
+      { error: "Appointment not found or could not be deleted." },
+      { status: 404 }
     );
   }
 }

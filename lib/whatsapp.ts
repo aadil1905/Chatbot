@@ -5,21 +5,21 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-async function sendRequest(payload: any) {
+async function sendRequest(payload: Record<string, unknown>) {
   const response = await fetch(API_URL, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
   });
 
-  const data = await response.json();
+  const data: unknown = await response.json();
 
   if (!response.ok) {
     console.error("WhatsApp API Error");
     console.error(JSON.stringify(data, null, 2));
 
     throw new Error(
-      data?.error?.message ||
+      getErrorMessage(data) ||
       "Failed to send WhatsApp message"
     );
   }
@@ -114,4 +114,11 @@ export async function sendListMessage(
       },
     },
   });
+}
+
+function getErrorMessage(data: unknown): string | undefined {
+  if (typeof data !== "object" || data === null || !("error" in data)) return undefined;
+  const error = data.error;
+  if (typeof error !== "object" || error === null || !("message" in error)) return undefined;
+  return typeof error.message === "string" ? error.message : undefined;
 }
