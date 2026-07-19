@@ -27,6 +27,12 @@ appointmentTime: data.appointmentTime,
 treatment: data.treatment,
 status: data.status,
 notes: data.notes,
+    patient: {
+      connectOrCreate: {
+        where: { phone: data.phone },
+        create: { fullName: data.patientName, phone: data.phone },
+      },
+    },
   },
 });
 

@@ -25,6 +25,12 @@ export async function saveAppointment(data: AppointmentData) {
       appointmentDate: appointmentDate,
       appointmentTime: data.time,
       treatment: data.reason,
+      patient: {
+        connectOrCreate: {
+          where: { phone: data.phone },
+          create: { fullName: data.name, phone: data.phone },
+        },
+      },
     },
   });
 }

@@ -39,7 +39,7 @@ export default function Sidebar() {
         </Link>
 
         <Link
-          href="/patients"
+          href="/dashboard/patients"
           className="flex items-center gap-3 rounded-lg p-3 hover:bg-blue-50 transition"
         >
           <Users size={20} />

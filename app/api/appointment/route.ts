@@ -27,6 +27,12 @@ await prisma.appointment.create({
     appointmentDate: new Date(date),
     appointmentTime: time,
     treatment: problem,
+    patient: {
+      connectOrCreate: {
+        where: { phone },
+        create: { fullName: name, phone },
+      },
+    },
   },
 });
     return NextResponse.json({

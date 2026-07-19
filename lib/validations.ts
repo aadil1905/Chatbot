@@ -30,3 +30,15 @@ export const appointmentSchema = z.object({
 export type AppointmentFormValues = z.infer<
   typeof appointmentSchema
 >;
+
+export const patientSchema = z.object({
+  fullName: z.string().trim().min(2, "Patient name must be at least 2 characters"),
+  phone: z.string().trim().min(10, "Phone number must be at least 10 digits"),
+  email: z.union([z.literal(""), z.string().email("Enter a valid email")]).optional(),
+  dateOfBirth: z.union([z.literal(""), z.string().date()]).optional(),
+  gender: z.union([z.literal(""), z.enum(["Female", "Male", "Non-binary", "Prefer not to say"])]).optional(),
+  address: z.string().max(500, "Address is too long").optional(),
+  medicalNotes: z.string().max(2000, "Medical notes are too long").optional(),
+});
+
+export type PatientFormValues = z.infer<typeof patientSchema>;
