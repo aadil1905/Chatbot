@@ -8,6 +8,7 @@ import {
   Settings,
   ClipboardList,
   Stethoscope,
+  ReceiptIndianRupee,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -53,6 +54,10 @@ export default function Sidebar() {
 
         <Link href="/dashboard/treatment-plans" className="flex items-center gap-3 rounded-lg p-3 hover:bg-blue-50 transition">
           <ClipboardList size={20} /> Treatment Plans
+        </Link>
+
+        <Link href="/dashboard/billing" className="flex items-center gap-3 rounded-lg p-3 hover:bg-blue-50 transition">
+          <ReceiptIndianRupee size={20} /> Billing
         </Link>
 
         <Link

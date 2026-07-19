@@ -39,8 +39,42 @@ model Patient {
   appointments Appointment[]
   clinicalRecords ClinicalRecord[]
   treatmentPlans  TreatmentPlan[]
+  invoices        Invoice[]
 
   @@index([fullName])
+}
+
+model Invoice {
+  id              Int            @id @default(autoincrement())
+  invoiceNumber   String         @unique
+  patientId       Int
+  treatmentPlanId Int?
+  issueDate       DateTime       @default(now())
+  dueDate         DateTime?
+  totalAmount     Int
+  status          String         @default("Unpaid")
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  patient         Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatmentPlan   TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id], onDelete: SetNull)
+  payments        Payment[]
+
+  @@index([patientId, status])
+  @@index([dueDate])
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  invoiceId Int
+  amount    Int
+  method    String
+  paidAt    DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, paidAt])
 }
 
 model ClinicalRecord {
@@ -67,6 +101,7 @@ model TreatmentPlan {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  invoices      Invoice[]
 
   @@index([patientId, status])
 }

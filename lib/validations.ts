@@ -58,3 +58,19 @@ export const treatmentPlanSchema = z.object({
   estimatedCost: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
   notes: z.string().max(5000).optional(),
 });
+
+export const invoiceSchema = z.object({
+  patientId: z.coerce.number().int().positive(),
+  treatmentPlanId: z.union([z.literal(""), z.coerce.number().int().positive()]).optional(),
+  issueDate: z.string().date(),
+  dueDate: z.union([z.literal(""), z.string().date()]).optional(),
+  totalAmount: z.coerce.number().int().positive("Invoice amount must be greater than zero"),
+  notes: z.string().max(2000).optional(),
+});
+
+export const paymentSchema = z.object({
+  amount: z.coerce.number().int().positive("Payment amount must be greater than zero"),
+  method: z.enum(["Cash", "UPI", "Card", "Bank transfer", "Other"]),
+  paidAt: z.string().date(),
+  notes: z.string().max(1000).optional(),
+});
