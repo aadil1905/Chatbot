@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BellRing, CalendarDays, ClipboardList, Download, LayoutDashboard, ReceiptIndianRupee, Settings, Stethoscope, Users } from "lucide-react";
+import { BarChart3, BellRing, CalendarDays, ClipboardList, CircleHelp, Download, LayoutDashboard, ReceiptIndianRupee, Settings, Stethoscope, Users } from "lucide-react";
 
 const navigation = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -15,6 +15,7 @@ const navigation = [
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard/follow-ups", label: "Follow-ups", icon: BellRing },
   { href: "/dashboard/exports", label: "Exports", icon: Download },
+  { href: "/dashboard/help", label: "Help", icon: CircleHelp },
 ];
 
 export default function Sidebar() {
