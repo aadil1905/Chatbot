@@ -34,8 +34,16 @@ export async function updateLeadAction(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim() || null;
   const followUp = String(formData.get("nextFollowUpAt") || "");
   const nextFollowUpAt = followUp ? new Date(followUp) : null;
+  const conversionValueInput = String(formData.get("conversionValue") || "").trim();
+  const conversionValueNumber = Number(conversionValueInput);
+  const existing = await prisma.lead.findFirst({ where: { id, clinicId: user.clinicId }, select: { stage: true } });
+  if (!existing) return;
   const contactStages = ["CONTACTED", "BOOKED", "VISITED", "CONVERTED"];
-  const result = await prisma.lead.updateMany({ where: { id, clinicId: user.clinicId }, data: { stage, lossReason: stage === "LOST" ? lossReason : null, notes, nextFollowUpAt, lastContactedAt: contactStages.includes(stage) ? new Date() : undefined } });
-  if (result.count) await prisma.leadActivity.create({ data: { leadId: id, type: "STAGE_CHANGED", content: `Lead moved to ${stage}` } });
+  const recovered = existing.stage === "LOST" && stage !== "LOST";
+  const result = await prisma.lead.updateMany({ where: { id, clinicId: user.clinicId }, data: { stage, lossReason: stage === "LOST" ? lossReason : null, notes, nextFollowUpAt, lastContactedAt: contactStages.includes(stage) ? new Date() : undefined, recoveredAt: recovered ? new Date() : undefined, conversionValue: stage === "CONVERTED" && Number.isFinite(conversionValueNumber) && conversionValueNumber >= 0 ? Math.round(conversionValueNumber) : undefined } });
+  if (result.count) {
+    await prisma.leadActivity.create({ data: { leadId: id, type: "STAGE_CHANGED", content: `Lead moved to ${stage}` } });
+    if (recovered) await prisma.leadActivity.create({ data: { leadId: id, type: "LEAD_RECOVERED", content: "Lead was recovered from Lost" } });
+  }
   revalidatePath(leadsPath);
 }

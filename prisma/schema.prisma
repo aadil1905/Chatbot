@@ -207,6 +207,8 @@ model Lead {
   stage               String   @default("NEW")
   notes               String?
   lossReason          String?
+  conversionValue     Int?
+  recoveredAt         DateTime?
   lastContactedAt     DateTime?
   nextFollowUpAt      DateTime?
   bookedAppointmentId Int?     @unique
