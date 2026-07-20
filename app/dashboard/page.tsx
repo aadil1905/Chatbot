@@ -1,33 +1,54 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, Clock3, Users } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, ClipboardPlus, Clock3, IndianRupee, MessageCircle, Plus, UserPlus, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusBadge from "@/components/appointments/StatusBadge";
+import type { AppointmentStatus } from "@/types/appointment";
 
-function startOfToday() { const date = new Date(); date.setHours(0, 0, 0, 0); return date; }
+function startOfDay(input = new Date()) { const value = new Date(input); value.setHours(0, 0, 0, 0); return value; }
+function dateLabel(date: Date) { return date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }); }
 
 export default async function DashboardPage() {
-  const today = startOfToday();
-  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-  const [todayCount, pendingCount, completedCount, totalPatients, upcoming] = await prisma.$transaction([
-    prisma.appointment.count({ where: { appointmentDate: { gte: today, lt: tomorrow } } }),
-    prisma.appointment.count({ where: { status: "Pending" } }),
-    prisma.appointment.count({ where: { status: "Completed" } }),
-    prisma.appointment.count({ where: { appointmentDate: { gte: today } } }),
-    prisma.appointment.findMany({ where: { appointmentDate: { gte: today }, status: { not: "Cancelled" } }, orderBy: [{ appointmentDate: "asc" }, { appointmentTime: "asc" }], take: 5 }),
+  const today = startOfDay(); const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekStart = new Date(today); weekStart.setDate(weekStart.getDate() - 6);
+  const [todayAppointments, pendingAppointments, completedThisMonth, patients, upcoming, weekAppointments, invoices] = await Promise.all([
+    prisma.appointment.findMany({ where: { appointmentDate: { gte: today, lt: tomorrow }, status: { not: "Cancelled" } }, orderBy: { appointmentTime: "asc" } }),
+    prisma.appointment.findMany({ where: { status: "Pending" }, orderBy: [{ appointmentDate: "asc" }, { appointmentTime: "asc" }], take: 5 }),
+    prisma.appointment.count({ where: { status: "Completed", appointmentDate: { gte: new Date(today.getFullYear(), today.getMonth(), 1) } } }),
+    prisma.patient.count(),
+    prisma.appointment.findMany({ where: { appointmentDate: { gte: tomorrow }, status: { not: "Cancelled" } }, orderBy: [{ appointmentDate: "asc" }, { appointmentTime: "asc" }], take: 5 }),
+    prisma.appointment.findMany({ where: { appointmentDate: { gte: weekStart, lt: weekEnd } }, select: { appointmentDate: true } }),
+    prisma.invoice.findMany({ include: { patient: true, payments: true }, orderBy: { dueDate: "asc" }, take: 50 }),
   ]);
+  const overdueFollowUps = pendingAppointments.filter((item) => item.appointmentDate < today);
+  const unpaidInvoices = invoices.filter((invoice) => invoice.payments.reduce((sum, payment) => sum + payment.amount, 0) < invoice.totalAmount);
+  const outstanding = unpaidInvoices.reduce((sum, invoice) => sum + invoice.totalAmount - invoice.payments.reduce((paid, payment) => paid + payment.amount, 0), 0);
+  const dayVolumes = Array.from({ length: 7 }, (_, index) => { const date = new Date(weekStart); date.setDate(date.getDate() + index); const count = weekAppointments.filter((appointment) => startOfDay(appointment.appointmentDate).getTime() === date.getTime()).length; return { date, count }; });
+  const maximumVolume = Math.max(1, ...dayVolumes.map((item) => item.count));
   const stats = [
-    { title: "Today's appointments", value: todayCount, icon: CalendarDays },
-    { title: "Awaiting confirmation", value: pendingCount, icon: Clock3 },
-    { title: "Completed", value: completedCount, icon: CheckCircle2 },
-    { title: "Upcoming bookings", value: totalPatients, icon: Users },
+    { label: "Today’s appointments", value: todayAppointments.length, note: todayAppointments.length === 1 ? "1 booking today" : `${todayAppointments.length} bookings today`, href: "/dashboard/calendar", icon: CalendarDays, tone: "bg-blue-50 text-blue-700" },
+    { label: "Awaiting confirmation", value: pendingAppointments.length, note: "Review pending bookings", href: "/dashboard/appointments?status=Pending", icon: Clock3, tone: "bg-amber-50 text-amber-700" },
+    { label: "Completed this month", value: completedThisMonth, note: "Finished visits", href: "/dashboard/reports", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" },
+    { label: "Registered patients", value: patients, note: "Patient profiles", href: "/dashboard/patients", icon: Users, tone: "bg-cyan-50 text-cyan-700" },
   ];
-
-  return <div className="space-y-8">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-3xl font-bold tracking-tight">Dashboard</h1><p className="mt-1 text-muted-foreground">A live view of your clinic&apos;s appointment activity.</p></div><Link href="/dashboard/appointments/new" className="text-sm font-medium text-primary hover:underline">Create appointment</Link></div>
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(({ title, value, icon: Icon }) => <Card key={title}><CardContent className="flex items-center justify-between p-6"><div><p className="text-sm text-muted-foreground">{title}</p><p className="mt-2 text-3xl font-bold">{value}</p></div><Icon className="size-8 text-primary/70" /></CardContent></Card>)}</div>
-    <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle>Upcoming appointments</CardTitle><Link href="/dashboard/appointments" className="text-sm font-medium text-primary hover:underline">View all</Link></CardHeader><CardContent>{upcoming.length === 0 ? <div className="py-10 text-center text-sm text-muted-foreground">No upcoming appointments.</div> : <div className="divide-y">{upcoming.map((appointment) => <Link key={appointment.id} href={`/dashboard/appointments/${appointment.id}`} className="flex flex-col gap-2 py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{appointment.patientName}</p><p className="text-sm text-muted-foreground">{appointment.treatment} · {appointment.appointmentDate.toLocaleDateString(undefined, { day: "numeric", month: "short" })} at {appointment.appointmentTime}</p></div><StatusBadge status={appointment.status as "Pending" | "Confirmed" | "Completed" | "Cancelled"} /></Link>)}</div>}</CardContent></Card>
+  const actions = [
+    { label: "New appointment", href: "/dashboard/appointments/new", icon: Plus, className: "bg-primary text-primary-foreground" },
+    { label: "New patient", href: "/dashboard/patients/new", icon: UserPlus, className: "border border-border bg-card text-foreground" },
+    { label: "Create invoice", href: "/dashboard/billing/new", icon: IndianRupee, className: "border border-border bg-card text-foreground" },
+    { label: "Follow-ups", href: "/dashboard/follow-ups", icon: MessageCircle, className: "border border-border bg-card text-foreground" },
+  ];
+  return <div className="mx-auto max-w-7xl space-y-6">
+    <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"><div><p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Clinic overview</p><h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Good morning, Doctor</h1><p className="mt-2 text-muted-foreground">Here is the activity that needs your attention today.</p></div><div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">{actions.map(({ label, href, icon: Icon, className }) => <Link key={label} href={href} className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${className}`}><Icon className="size-4" />{label}</Link>)}</div></header>
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(({ label, value, note, href, icon: Icon, tone }) => <Link key={label} href={href} className="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-bold tracking-tight">{value}</p></div><div className={`grid size-10 place-items-center rounded-xl ${tone}`}><Icon className="size-5" /></div></div><p className="mt-4 text-xs text-muted-foreground">{note}</p></Link>)}</section>
+    <section className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+      <article className="rounded-2xl border border-border bg-card shadow-sm"><div className="flex items-center justify-between border-b border-border px-6 py-5"><div><h2 className="text-lg font-bold">Today’s schedule</h2><p className="mt-1 text-sm text-muted-foreground">{today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p></div><Link href="/dashboard/calendar" className="text-sm font-semibold text-primary hover:underline">Calendar</Link></div>{todayAppointments.length === 0 ? <div className="px-6 py-12 text-center"><CalendarDays className="mx-auto size-8 text-muted-foreground/60" /><p className="mt-3 text-sm font-medium">No appointments today</p><Link href="/dashboard/appointments/new" className="mt-2 inline-block text-sm font-semibold text-primary hover:underline">Create an appointment</Link></div> : <div className="divide-y divide-border">{todayAppointments.map((appointment) => <Link key={appointment.id} href={`/dashboard/appointments/${appointment.id}`} className="flex flex-col gap-3 px-6 py-4 transition hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><p className="w-12 text-sm font-bold text-primary">{appointment.appointmentTime}</p><div><p className="font-semibold">{appointment.patientName}</p><p className="mt-0.5 text-sm text-muted-foreground">{appointment.treatment}</p></div></div><StatusBadge status={appointment.status as AppointmentStatus} /></Link>)}</div>}</article>
+      <article className="rounded-2xl border border-border bg-card p-6 shadow-sm"><h2 className="text-lg font-bold">Weekly bookings</h2><p className="mt-1 text-sm text-muted-foreground">Last 7 days of appointment activity.</p><div className="mt-7 flex h-40 items-end justify-between gap-2">{dayVolumes.map(({ date, count }) => <div key={date.toISOString()} className="flex flex-1 flex-col items-center gap-2"><span className="text-xs font-semibold text-muted-foreground">{count || ""}</span><div className="flex h-24 w-full items-end rounded-t-lg bg-muted px-1"><div className="w-full rounded-t-md bg-primary transition-all" style={{ height: `${Math.max(count ? 16 : 4, (count / maximumVolume) * 100)}%` }} /></div><span className="text-[11px] text-muted-foreground">{date.toLocaleDateString("en-IN", { weekday: "short" })}</span></div>)}</div></article>
+    </section>
+    <section className="grid gap-5 xl:grid-cols-2">
+      <article className="rounded-2xl border border-border bg-card shadow-sm"><div className="flex items-center justify-between border-b border-border px-6 py-5"><div><h2 className="text-lg font-bold">Attention needed</h2><p className="mt-1 text-sm text-muted-foreground">Items that should be checked today.</p></div><AlertCircle className="size-5 text-amber-600" /></div><div className="divide-y divide-border">{overdueFollowUps.length === 0 && unpaidInvoices.length === 0 ? <div className="px-6 py-12 text-center text-sm text-muted-foreground">Everything is up to date.</div> : <>{overdueFollowUps.slice(0, 3).map((appointment) => <Link key={`follow-${appointment.id}`} href={`/dashboard/appointments/${appointment.id}`} className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-muted/40"><div><p className="font-semibold">Follow up: {appointment.patientName}</p><p className="mt-1 text-sm text-muted-foreground">{appointment.treatment} · {dateLabel(appointment.appointmentDate)}</p></div><ChevronRight className="size-4 text-muted-foreground" /></Link>)}{unpaidInvoices.slice(0, 3).map((invoice) => <Link key={`invoice-${invoice.id}`} href={`/dashboard/billing/${invoice.id}`} className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-muted/40"><div><p className="font-semibold">Unpaid invoice: {invoice.patient.fullName}</p><p className="mt-1 text-sm text-muted-foreground">{invoice.invoiceNumber} · ₹{(invoice.totalAmount - invoice.payments.reduce((sum, payment) => sum + payment.amount, 0)).toLocaleString("en-IN")}</p></div><ChevronRight className="size-4 text-muted-foreground" /></Link>)}</>}</div></article>
+      <article className="rounded-2xl border border-border bg-card p-6 shadow-sm"><p className="text-sm font-medium text-muted-foreground">Outstanding payments</p><p className="mt-2 text-4xl font-bold tracking-tight">₹{outstanding.toLocaleString("en-IN")}</p><p className="mt-2 text-sm text-muted-foreground">Across {unpaidInvoices.length} invoice{unpaidInvoices.length === 1 ? "" : "s"} that still need payment.</p><div className="mt-7 rounded-xl bg-muted/70 p-4"><p className="text-sm font-semibold">Next appointment</p>{upcoming[0] ? <Link href={`/dashboard/appointments/${upcoming[0].id}`} className="mt-2 block"><p className="font-semibold text-primary hover:underline">{upcoming[0].patientName}</p><p className="mt-1 text-sm text-muted-foreground">{upcoming[0].treatment} · {dateLabel(upcoming[0].appointmentDate)} at {upcoming[0].appointmentTime}</p></Link> : <p className="mt-2 text-sm text-muted-foreground">No upcoming appointments scheduled.</p>}</div><Link href="/dashboard/billing" className="mt-5 inline-flex text-sm font-semibold text-primary hover:underline">Open billing</Link></article>
+    </section>
   </div>;
 }
