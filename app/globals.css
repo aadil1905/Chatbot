@@ -130,3 +130,18 @@
 }
 
 ::selection { background: color-mix(in oklab, var(--primary) 22%, white); }
+
+/* Shared responsive layout utilities used by the clinic workspace. */
+.exports-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 1180px) {
+  .exports-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .exports-grid { grid-template-columns: minmax(0, 1fr); }
+}
