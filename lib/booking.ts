@@ -1,444 +1,49 @@
-import { sendReplyButtons, sendListMessage, sendTextMessage } from "./whatsapp";
 import { saveAppointment } from "./appointment";
+import { buildTimeSlots, defaultServices, getClinicConfiguration } from "./clinic-config";
+import { sendListMessage, sendReplyButtons, sendTextMessage } from "./whatsapp";
 
-export type BookingStep =
-  | "name"
-  | "phone"
-  | "date"
-  | "custom_date"
-  | "time"
-  | "reason"
-  | "confirm";
-
-export interface BookingSession {
-  step: BookingStep;
-  patientName: string;
-  phone: string;
-  appointmentDate: string;
-  appointmentTime: string;
-  reason: string;
-}
-
+export type BookingStep = "name" | "phone" | "date" | "custom_date" | "time" | "reason" | "confirm";
+export interface BookingSession { step: BookingStep; patientName: string; phone: string; appointmentDate: string; appointmentTime: string; reason: string; }
 export const bookings: Record<string, BookingSession> = {};
+export const hasBooking = (userId: string) => !!bookings[userId];
+export const clearBooking = (userId: string) => { delete bookings[userId]; };
 
-export function hasBooking(userId: string) {
-  return !!bookings[userId];
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const tomorrowISO = () => { const date = new Date(); date.setDate(date.getDate() + 1); return date.toISOString().slice(0, 10); };
+const formatDate = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const validName = (name: string) => /^[a-zA-Z ]{2,50}$/.test(name.trim());
+const validPhone = (phone: string) => phone.replace(/\D/g, "").length === 10;
+const customDate = (value: string) => /^\d{2}-\d{2}-\d{4}$/.test(value) && !Number.isNaN(new Date(value.split("-").reverse().join("-")).getTime());
+
+async function askDate(userId: string) { await sendReplyButtons(userId, "Please choose an appointment date.", [{ id: "TODAY", title: "Today" }, { id: "TOMORROW", title: "Tomorrow" }, { id: "OTHER_DATE", title: "Other" }]); }
+async function askTime(userId: string, date: string) {
+  const clinic = await getClinicConfiguration();
+  const day = new Date(`${date}T12:00:00`).getDay();
+  const hours = clinic?.hours.find((item) => item.dayOfWeek === day);
+  if (hours?.isClosed) { await sendTextMessage(userId, "The clinic is closed on that day. Please choose another date."); await askDate(userId); return; }
+  const slots = hours ? buildTimeSlots(hours.openTime, hours.closeTime, hours.slotMinutes) : ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
+  await sendListMessage(userId, "Select your preferred time.", "Choose time", [{ title: "Available times", rows: slots.map((time) => ({ id: `TIME_${time}`, title: time })) }]);
 }
-
-export function clearBooking(userId: string) {
-  delete bookings[userId];
+async function askService(userId: string) {
+  const clinic = await getClinicConfiguration();
+  const services = clinic?.services.length ? clinic.services : defaultServices;
+  await sendListMessage(userId, "What service would you like to book?", "Choose service", [{ title: "Dental services", rows: services.slice(0, 10).map((service) => ({ id: `SERVICE_${"id" in service ? service.id : service.name}`, title: service.name, description: service.description || `${service.durationMinutes} minutes` })) }]);
 }
 
 export async function startBooking(userId: string) {
-  bookings[userId] = {
-    step: "name",
-    patientName: "",
-    phone: "",
-    appointmentDate: "",
-    appointmentTime: "",
-    reason: "",
-  };
-
-  await sendTextMessage(
-    userId,
-    "👋 Great! Let's book your appointment.\n\nPlease enter your full name."
-  );
+  bookings[userId] = { step: "name", patientName: "", phone: "", appointmentDate: "", appointmentTime: "", reason: "" };
+  const clinic = await getClinicConfiguration();
+  await sendTextMessage(userId, clinic?.whatsapp?.bookingIntro || "Great! Let's book your appointment. Please enter your full name.");
 }
 
-function isValidName(name: string) {
-  return /^[a-zA-Z ]{2,50}$/.test(name.trim());
-}
-
-function isValidPhone(phone: string) {
-  const cleaned = phone.replace(/\D/g, "");
-  return cleaned.length === 10;
-}
-
-function todayISO() {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
-}
-
-function tomorrowISO() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
-}
-
-function formatDate(date: string) {
-  const d = new Date(date);
-
-  return d.toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function isValidCustomDate(input: string) {
-  const regex = /^\d{2}-\d{2}-\d{4}$/;
-
-  if (!regex.test(input)) return false;
-
-  const [dd, mm, yyyy] = input.split("-");
-
-  const date = new Date(
-    Number(yyyy),
-    Number(mm) - 1,
-    Number(dd)
-  );
-
-  if (isNaN(date.getTime())) return false;
-
-  return true;
-}
-
-function convertToISO(input: string) {
-  const [dd, mm, yyyy] = input.split("-");
-
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-async function askDate(userId: string) {
-  await sendReplyButtons(
-    userId,
-    "📅 Please choose an appointment date.",
-    [
-      {
-        id: "TODAY",
-        title: "Today",
-      },
-      {
-        id: "TOMORROW",
-        title: "Tomorrow",
-      },
-      {
-        id: "OTHER_DATE",
-        title: "Other",
-      },
-    ]
-  );
-}
-
-async function askTime(userId: string) {
-  await sendListMessage(
-    userId,
-    "🕒 Select a preferred time.",
-    "Choose Time",
-    [
-      {
-        title: "Morning",
-        rows: [
-          {
-            id: "TIME_09:00",
-            title: "09:00 AM",
-          },
-          {
-            id: "TIME_10:00",
-            title: "10:00 AM",
-          },
-          {
-            id: "TIME_11:00",
-            title: "11:00 AM",
-          },
-        ],
-      },
-      {
-        title: "Afternoon",
-        rows: [
-          {
-            id: "TIME_02:00",
-            title: "02:00 PM",
-          },
-          {
-            id: "TIME_03:00",
-            title: "03:00 PM",
-          },
-          {
-            id: "TIME_04:00",
-            title: "04:00 PM",
-          },
-        ],
-      },
-      {
-        title: "Evening",
-        rows: [
-          {
-            id: "TIME_05:00",
-            title: "05:00 PM",
-          },
-          {
-            id: "TIME_06:00",
-            title: "06:00 PM",
-          },
-          {
-            id: "TIME_07:00",
-            title: "07:00 PM",
-          },
-        ],
-      },
-    ]
-  );
-}
-export async function continueBooking(
-  userId: string,
-  message: string
-) {
-  const booking = bookings[userId];
-
-  if (!booking) return;
-
+export async function continueBooking(userId: string, message: string) {
+  const booking = bookings[userId]; if (!booking) return;
   const input = message.trim();
-
-  switch (booking.step) {
-    case "name": {
-      if (!isValidName(input)) {
-        await sendTextMessage(
-          userId,
-          "❌ Please enter a valid full name."
-        );
-        return;
-      }
-
-      booking.patientName = input;
-      booking.step = "phone";
-
-      await sendTextMessage(
-        userId,
-        "📱 Please enter your 10-digit mobile number."
-      );
-
-      return;
-    }
-
-    case "phone": {
-      if (!isValidPhone(input)) {
-        await sendTextMessage(
-          userId,
-          "❌ Please enter a valid 10-digit mobile number."
-        );
-        return;
-      }
-
-      booking.phone = input.replace(/\D/g, "");
-      booking.step = "date";
-
-      await askDate(userId);
-
-      return;
-    }
-
-    case "date": {
-      if (input === "TODAY") {
-        booking.appointmentDate = todayISO();
-      }
-
-      else if (input === "TOMORROW") {
-        booking.appointmentDate = tomorrowISO();
-      }
-
-      else if (input === "OTHER_DATE") {
-        booking.step = "custom_date";
-
-        await sendTextMessage(
-          userId,
-          "📅 Please enter the date in DD-MM-YYYY format."
-        );
-
-        return;
-      }
-
-      else {
-        await askDate(userId);
-        return;
-      }
-
-      booking.step = "time";
-
-      await askTime(userId);
-
-      return;
-    }
-
-    case "custom_date": {
-      if (!isValidCustomDate(input)) {
-        await sendTextMessage(
-          userId,
-          "❌ Invalid date.\n\nPlease use DD-MM-YYYY."
-        );
-
-        return;
-      }
-
-      booking.appointmentDate = convertToISO(input);
-      booking.step = "time";
-
-      await askTime(userId);
-
-      return;
-    }
-        case "time": {
-      if (!input.startsWith("TIME_")) {
-        await askTime(userId);
-        return;
-      }
-
-      booking.appointmentTime = input.replace("TIME_", "");
-
-      booking.step = "reason";
-
-      await sendListMessage(
-        userId,
-        "🩺 What is the reason for your appointment?",
-        "Select Reason",
-        [
-          {
-            title: "Consultation",
-            rows: [
-              {
-                id: "GENERAL_CHECKUP",
-                title: "General Checkup",
-              },
-              {
-                id: "FOLLOW_UP",
-                title: "Follow-up Visit",
-              },
-              {
-                id: "NEW_CONSULTATION",
-                title: "New Consultation",
-              },
-            ],
-          },
-          {
-            title: "Health Concerns",
-            rows: [
-              {
-                id: "FEVER",
-                title: "Fever / Cold",
-              },
-              {
-                id: "PAIN",
-                title: "Pain",
-              },
-              {
-                id: "OTHER",
-                title: "Other",
-              },
-            ],
-          },
-        ]
-      );
-
-      return;
-    }
-
-    case "reason": {
-      booking.reason = input.replace(/_/g, " ");
-
-      booking.step = "confirm";
-
-      await sendReplyButtons(
-        userId,
-        `📋 Please confirm your appointment
-
-👤 Name: ${booking.patientName}
-
-📱 Phone: ${booking.phone}
-
-📅 Date: ${formatDate(booking.appointmentDate)}
-
-🕒 Time: ${booking.appointmentTime}
-
-🩺 Reason: ${booking.reason}`,
-        [
-          {
-            id: "CONFIRM_BOOKING",
-            title: "✅ Confirm",
-          },
-          {
-            id: "CANCEL_BOOKING",
-            title: "❌ Cancel",
-          },
-        ]
-      );
-
-      return;
-    }
-
-    case "confirm": {
-
-      if (input === "CANCEL_BOOKING") {
-
-        clearBooking(userId);
-
-        await sendTextMessage(
-          userId,
-          "❌ Appointment booking cancelled."
-        );
-
-        return;
-      }
-
-      if (input !== "CONFIRM_BOOKING") {
-
-        await sendReplyButtons(
-          userId,
-          "Please choose an option.",
-          [
-            {
-              id: "CONFIRM_BOOKING",
-              title: "✅ Confirm",
-            },
-            {
-              id: "CANCEL_BOOKING",
-              title: "❌ Cancel",
-            },
-          ]
-        );
-
-        return;
-      }
-            try {
-        await saveAppointment({
-          name: booking.patientName,
-          phone: booking.phone,
-          date: booking.appointmentDate,
-          time: booking.appointmentTime,
-          reason: booking.reason,
-        });
-
-        await sendTextMessage(
-          userId,
-          `✅ Your appointment has been booked successfully!
-
-📅 ${formatDate(booking.appointmentDate)}
-🕒 ${booking.appointmentTime}
-
-Thank you! We look forward to seeing you.`
-        );
-      } catch (error) {
-        console.error("Booking Error:", error);
-
-        await sendTextMessage(
-          userId,
-          "❌ Sorry, something went wrong while booking your appointment. Please try again."
-        );
-      }
-
-      clearBooking(userId);
-      return;
-    }
-
-    default: {
-      clearBooking(userId);
-
-      await sendTextMessage(
-        userId,
-        "⚠️ Your booking session expired. Please type *Hi* to start again."
-      );
-
-      return;
-    }
-  }
+  if (booking.step === "name") { if (!validName(input)) return void await sendTextMessage(userId, "Please enter a valid full name."); booking.patientName = input; booking.step = "phone"; return void await sendTextMessage(userId, "Please enter your 10-digit mobile number."); }
+  if (booking.step === "phone") { if (!validPhone(input)) return void await sendTextMessage(userId, "Please enter a valid 10-digit mobile number."); booking.phone = input.replace(/\D/g, ""); booking.step = "date"; return askDate(userId); }
+  if (booking.step === "date") { if (input === "TODAY") booking.appointmentDate = todayISO(); else if (input === "TOMORROW") booking.appointmentDate = tomorrowISO(); else if (input === "OTHER_DATE") { booking.step = "custom_date"; return void await sendTextMessage(userId, "Please enter the date in DD-MM-YYYY format."); } else return askDate(userId); booking.step = "time"; return askTime(userId, booking.appointmentDate); }
+  if (booking.step === "custom_date") { if (!customDate(input)) return void await sendTextMessage(userId, "Invalid date. Please use DD-MM-YYYY."); const [day, month, year] = input.split("-"); booking.appointmentDate = `${year}-${month}-${day}`; booking.step = "time"; return askTime(userId, booking.appointmentDate); }
+  if (booking.step === "time") { if (!input.startsWith("TIME_")) return askTime(userId, booking.appointmentDate); booking.appointmentTime = input.slice(5); booking.step = "reason"; return askService(userId); }
+  if (booking.step === "reason") { if (!input.startsWith("SERVICE_")) return askService(userId); const clinic = await getClinicConfiguration(); const idOrName = input.slice(8); booking.reason = clinic?.services.find((service) => String(service.id) === idOrName)?.name || defaultServices.find((service) => service.name === idOrName)?.name || idOrName.replace(/_/g, " "); booking.step = "confirm"; return sendReplyButtons(userId, `Please confirm your appointment\n\nName: ${booking.patientName}\nPhone: ${booking.phone}\nDate: ${formatDate(booking.appointmentDate)}\nTime: ${booking.appointmentTime}\nService: ${booking.reason}`, [{ id: "CONFIRM_BOOKING", title: "Confirm" }, { id: "CANCEL_BOOKING", title: "Cancel" }]); }
+  if (booking.step === "confirm") { if (input === "CANCEL_BOOKING") { clearBooking(userId); return void await sendTextMessage(userId, "Appointment booking cancelled."); } if (input !== "CONFIRM_BOOKING") return void await sendReplyButtons(userId, "Please choose an option.", [{ id: "CONFIRM_BOOKING", title: "Confirm" }, { id: "CANCEL_BOOKING", title: "Cancel" }]); try { await saveAppointment({ name: booking.patientName, phone: booking.phone, date: booking.appointmentDate, time: booking.appointmentTime, reason: booking.reason }); await sendTextMessage(userId, `Your appointment has been booked successfully!\n\n${formatDate(booking.appointmentDate)} at ${booking.appointmentTime}\n\nThank you. We look forward to seeing you.`); } catch (error) { console.error("Booking Error:", error); await sendTextMessage(userId, "Sorry, something went wrong while booking your appointment. Please try again."); } clearBooking(userId); }
 }
