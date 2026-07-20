@@ -1,0 +1,34 @@
+export const dynamic = "force-dynamic";
+
+import { CheckCircle2, Circle, CloudCog, ExternalLink, ShieldCheck, UsersRound, Webhook } from "lucide-react";
+import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { toggleLaunchItemAction } from "./actions";
+
+export default async function LaunchPage() {
+  const user = await requireUser();
+  if (user.role !== "OWNER") redirect("/dashboard");
+  const [checklist, serviceCount, staffCount, whatsapp] = await Promise.all([
+    prisma.clinicLaunchChecklist.findUnique({ where: { clinicId: user.clinicId } }),
+    prisma.clinicService.count({ where: { clinicId: user.clinicId, active: true } }),
+    prisma.user.count({ where: { clinicId: user.clinicId, active: true } }),
+    prisma.clinicWhatsAppSettings.findUnique({ where: { clinicId: user.clinicId } }),
+  ]);
+  const environment = [
+    { label: "Database connection", ready: Boolean(process.env.DATABASE_URL && process.env.DIRECT_URL) },
+    { label: "OpenAI key", ready: Boolean(process.env.OPENAI_API_KEY) },
+    { label: "WhatsApp credentials", ready: Boolean(process.env.PHONE_NUMBER_ID && process.env.WHATSAPP_TOKEN && process.env.VERIFY_TOKEN) },
+    { label: "Session secret", ready: Boolean(process.env.AUTH_SECRET) },
+    { label: "Cron secret", ready: Boolean(process.env.CRON_SECRET), optional: true },
+  ];
+  const checks = [
+    { field: "whatsappWebhookVerified", label: "Webhook verified in Meta", description: "Meta webhook points to this clinic’s live /api/webhook URL.", done: checklist?.whatsappWebhookVerified ?? false, icon: Webhook },
+    { field: "whatsappTemplatesApproved", label: "WhatsApp templates approved", description: "Required before automated re-engagement messages outside the 24-hour response window.", done: checklist?.whatsappTemplatesApproved ?? false, icon: CheckCircle2 },
+    { field: "backupOwnerAssigned", label: "Second owner/admin added", description: "A clinic-controlled backup account is active in Clinic settings.", done: checklist?.backupOwnerAssigned ?? false, icon: UsersRound },
+    { field: "clinicTeamTrained", label: "Reception team trained", description: "Team knows Leads, Conversations, Follow-ups, and how to update outcomes.", done: checklist?.clinicTeamTrained ?? false, icon: UsersRound },
+    { field: "backupPlanReviewed", label: "Data and support plan reviewed", description: "Clinic has a support contact and understands that credentials remain private in Vercel.", done: checklist?.backupPlanReviewed ?? false, icon: ShieldCheck },
+  ] as const;
+  const completed = checks.filter((check) => check.done).length;
+  return <div className="mx-auto max-w-6xl space-y-6"><header><p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Owner-only handover</p><h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Production launch centre</h1><p className="mt-2 max-w-2xl text-muted-foreground">Use this centre when preparing a separate deployment for a real clinic. No API key or token is ever displayed here.</p></header><section className="grid gap-4 sm:grid-cols-3"><article className="rounded-2xl border border-border bg-card p-5 shadow-sm"><p className="text-sm text-muted-foreground">Active services</p><p className="mt-2 text-3xl font-bold">{serviceCount}</p></article><article className="rounded-2xl border border-border bg-card p-5 shadow-sm"><p className="text-sm text-muted-foreground">Active staff accounts</p><p className="mt-2 text-3xl font-bold">{staffCount}</p></article><article className="rounded-2xl border border-border bg-card p-5 shadow-sm"><p className="text-sm text-muted-foreground">Launch checklist</p><p className="mt-2 text-3xl font-bold">{completed}/{checks.length}</p></article></section><section className="rounded-2xl border border-border bg-card p-6 shadow-sm"><div className="flex items-center gap-2"><CloudCog className="size-5 text-primary" /><h2 className="text-lg font-bold">Private environment readiness</h2></div><p className="mt-1 text-sm text-muted-foreground">These checks only confirm whether the server has a value. They never show the value itself.</p><div className="mt-5 grid gap-3 sm:grid-cols-2">{environment.map((item) => <div key={item.label} className="flex items-center justify-between rounded-xl border border-border p-4"><span className="text-sm font-medium">{item.label}{item.optional && <span className="ml-2 text-xs text-muted-foreground">optional until scheduled follow-ups</span>}</span>{item.ready ? <span className="inline-flex items-center gap-1 text-sm font-bold text-emerald-700"><CheckCircle2 className="size-4" />Ready</span> : <span className="inline-flex items-center gap-1 text-sm font-bold text-amber-700"><Circle className="size-4" />Add in Vercel</span>}</div>)}</div></section><section className="rounded-2xl border border-border bg-card shadow-sm"><div className="border-b border-border px-6 py-5"><h2 className="text-lg font-bold">Clinic handover checklist</h2><p className="mt-1 text-sm text-muted-foreground">Mark each item only after it has been checked with the clinic owner.</p></div><div className="divide-y divide-border">{checks.map(({ field, label, description, done, icon: Icon }) => <article key={field} className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><div className={`mt-0.5 grid size-9 place-items-center rounded-xl ${done ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"}`}><Icon className="size-5" /></div><div><p className="font-semibold">{label}</p><p className="mt-1 text-sm text-muted-foreground">{description}</p></div></div><form action={toggleLaunchItemAction}><input type="hidden" name="field" value={field} /><input type="hidden" name="value" value={String(!done)} /><button className={`h-10 rounded-xl px-4 text-sm font-semibold ${done ? "border border-border bg-card hover:bg-muted" : "bg-primary text-primary-foreground hover:opacity-90"}`}>{done ? "Mark not done" : "Mark complete"}</button></form></article>)}</div></section><section className="rounded-2xl border border-sky-200 bg-sky-50 p-6 text-sm text-sky-950"><p className="font-bold">Clinic deployment handover</p><ol className="mt-3 list-decimal space-y-2 pl-5"><li>Create a separate Vercel project and Supabase project for the clinic.</li><li>Add private environment variables in Vercel, then deploy from that clinic’s Git branch.</li><li>Connect the clinic-owned WhatsApp number in Meta and verify the webhook.</li><li>Create clinic-owner and receptionist accounts in Settings.</li><li>Test a booking, a lead, and a follow-up before launch.</li></ol><a className="mt-4 inline-flex items-center gap-1 font-semibold underline" href="/api/health" target="_blank">Open basic health check <ExternalLink className="size-3" /></a></section></div>;
+}

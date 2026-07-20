@@ -144,6 +144,7 @@ model Clinic {
   followUpTasks FollowUpTask[]
   inventoryItems InventoryItem[]
   labCases       LabCase[]
+  launchChecklist ClinicLaunchChecklist?
 }
 
 model User {
@@ -371,4 +372,17 @@ model LabCase {
 
   @@index([clinicId, status, dueDate])
   @@index([patientId, createdAt])
+}
+
+model ClinicLaunchChecklist {
+  id                         Int      @id @default(autoincrement())
+  clinicId                   Int      @unique
+  whatsappWebhookVerified    Boolean  @default(false)
+  whatsappTemplatesApproved  Boolean  @default(false)
+  backupOwnerAssigned        Boolean  @default(false)
+  clinicTeamTrained          Boolean  @default(false)
+  backupPlanReviewed         Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  clinic                     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }
