@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BellRing, CalendarDays, ClipboardList, CircleHelp, Download, LayoutDashboard, ReceiptIndianRupee, Settings, Stethoscope, Users, UserRoundPlus } from "lucide-react";
+import { BarChart3, BellRing, BotMessageSquare, CalendarDays, ClipboardList, CircleHelp, Download, LayoutDashboard, ReceiptIndianRupee, Settings, Stethoscope, Users, UserRoundPlus } from "lucide-react";
 
 const navigation = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/leads", label: "Lead CRM", icon: UserRoundPlus },
+  { href: "/dashboard/ai-coach", label: "AI Coach", icon: BotMessageSquare },
   { href: "/dashboard/appointments", label: "Appointments", icon: ClipboardList },
   { href: "/dashboard/patients", label: "Patients", icon: Users },
   { href: "/dashboard/clinical-records", label: "Clinical records", icon: Stethoscope },

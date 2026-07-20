@@ -21,6 +21,7 @@ export async function getClinicConfiguration() {
       services: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
       hours: { orderBy: { dayOfWeek: "asc" } },
       whatsapp: true,
+      faqs: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 20 },
     },
   });
 }

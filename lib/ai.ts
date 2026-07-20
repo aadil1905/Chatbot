@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { SYSTEM_PROMPT } from "./prompts";
+import { getConversionCoachPrompt } from "./prompts";
 
 function getClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -22,7 +22,7 @@ export async function getAIReply(
     conversations[userId] = [
       {
         role: "system",
-        content: SYSTEM_PROMPT,
+        content: await getConversionCoachPrompt(),
       },
     ];
   }

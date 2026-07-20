@@ -122,6 +122,7 @@ model Clinic {
   hours     ClinicHours[]
   whatsapp  ClinicWhatsAppSettings?
   leads     Lead[]
+  faqs      ClinicFAQ[]
 }
 
 model User {
@@ -227,4 +228,19 @@ model LeadActivity {
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId, createdAt])
+}
+
+model ClinicFAQ {
+  id        Int      @id @default(autoincrement())
+  clinicId  Int
+  question  String
+  answer    String
+  category  String   @default("GENERAL")
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, active, sortOrder])
 }
