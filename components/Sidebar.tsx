@@ -12,6 +12,7 @@ const navigation = [
   { href: "/dashboard/appointments", label: "Appointments", icon: ClipboardList },
   { href: "/dashboard/patients", label: "Patients", icon: Users },
   { href: "/dashboard/clinical-records", label: "Clinical records", icon: Stethoscope },
+  { href: "/dashboard/clinical-workspace", label: "Clinical workspace", icon: Stethoscope },
   { href: "/dashboard/treatment-plans", label: "Treatment plans", icon: ClipboardList },
   { href: "/dashboard/billing", label: "Billing", icon: ReceiptIndianRupee },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
