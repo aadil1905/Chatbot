@@ -123,6 +123,7 @@ model Clinic {
   whatsapp  ClinicWhatsAppSettings?
   leads     Lead[]
   faqs      ClinicFAQ[]
+  conversations WhatsAppConversation[]
 }
 
 model User {
@@ -243,4 +244,48 @@ model ClinicFAQ {
   clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@index([clinicId, active, sortOrder])
+}
+
+model WhatsAppConversation {
+  id            Int      @id @default(autoincrement())
+  clinicId      Int
+  phone         String
+  language      String?
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  clinic        Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  messages      WhatsAppMessage[]
+  booking       WhatsAppBooking?
+
+  @@unique([clinicId, phone])
+  @@index([clinicId, lastMessageAt])
+}
+
+model WhatsAppMessage {
+  id             Int      @id @default(autoincrement())
+  conversationId Int
+  direction      String
+  content        String
+  messageType    String   @default("TEXT")
+  createdAt      DateTime @default(now())
+  conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model WhatsAppBooking {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @unique
+  step           String   @default("name")
+  patientName    String   @default("")
+  phone          String   @default("")
+  appointmentDate String  @default("")
+  appointmentTime String  @default("")
+  reason         String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
 }

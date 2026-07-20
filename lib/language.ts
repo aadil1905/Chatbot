@@ -1,10 +1,10 @@
 import { getClinicConfiguration } from "./clinic-config";
+import { setConversationLanguage } from "./whatsapp-conversations";
 
 export type ClinicLanguage = "en" | "hi" | "hinglish" | "mr";
 const languages: Record<string, ClinicLanguage> = { LANG_EN: "en", LANG_HI: "hi", LANG_HINGLISH: "hinglish", LANG_MR: "mr" };
-const selections: Record<string, ClinicLanguage> = {};
-export function selectLanguage(userId: string, selection: string) { const language = languages[selection]; if (!language) return undefined; selections[userId] = language; return language; }
-export function clearLanguage(userId: string) { delete selections[userId]; }
+export async function selectLanguage(userId: string, selection: string) { const language = languages[selection]; if (!language) return undefined; await setConversationLanguage(userId, language); return language; }
+export async function clearLanguage(userId: string) { await setConversationLanguage(userId, null); }
 
 export async function welcomeFor(language: ClinicLanguage) {
   const clinic = await getClinicConfiguration();
