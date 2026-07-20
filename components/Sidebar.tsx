@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BellRing, BotMessageSquare, CalendarDays, ClipboardList, CircleHelp, Download, LayoutDashboard, MessagesSquare, ReceiptIndianRupee, Settings, Stethoscope, Users, UserRoundPlus } from "lucide-react";
+import { BarChart3, BellRing, BotMessageSquare, CalendarDays, ClipboardList, CircleHelp, Download, LayoutDashboard, MessagesSquare, PackageCheck, ReceiptIndianRupee, Settings, Stethoscope, Users, UserRoundPlus } from "lucide-react";
 
 const navigation = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -15,6 +15,7 @@ const navigation = [
   { href: "/dashboard/clinical-workspace", label: "Clinical workspace", icon: Stethoscope },
   { href: "/dashboard/treatment-plans", label: "Treatment plans", icon: ClipboardList },
   { href: "/dashboard/billing", label: "Billing", icon: ReceiptIndianRupee },
+  { href: "/dashboard/operations", label: "Inventory & labs", icon: PackageCheck },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard/follow-ups", label: "Follow-ups", icon: BellRing },

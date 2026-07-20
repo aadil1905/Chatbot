@@ -43,6 +43,7 @@ model Patient {
   treatmentPlans  TreatmentPlan[]
   invoices        Invoice[]
   dentalChartEntries DentalChartEntry[]
+  labCases        LabCase[]
 
   @@index([fullName])
 }
@@ -119,6 +120,7 @@ model TreatmentPlan {
   updatedAt     DateTime @updatedAt
   patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   invoices      Invoice[]
+  labCases      LabCase[]
 
   @@index([patientId, status])
 }
@@ -140,6 +142,8 @@ model Clinic {
   faqs      ClinicFAQ[]
   conversations WhatsAppConversation[]
   followUpTasks FollowUpTask[]
+  inventoryItems InventoryItem[]
+  labCases       LabCase[]
 }
 
 model User {
@@ -329,4 +333,42 @@ model FollowUpTask {
 
   @@index([clinicId, status, scheduledFor])
   @@index([leadId])
+}
+
+model InventoryItem {
+  id           Int      @id @default(autoincrement())
+  clinicId     Int
+  name         String
+  category     String   @default("Clinical supplies")
+  unit         String   @default("units")
+  quantity     Int      @default(0)
+  reorderLevel Int      @default(0)
+  costPerUnit  Int?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  clinic       Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, name])
+  @@index([clinicId, active, quantity])
+}
+
+model LabCase {
+  id              Int            @id @default(autoincrement())
+  clinicId        Int
+  patientId       Int
+  treatmentPlanId Int?
+  labName         String
+  caseType        String
+  status          String         @default("SENT_TO_LAB")
+  dueDate         DateTime?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  clinic          Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient         Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatmentPlan   TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, status, dueDate])
+  @@index([patientId, createdAt])
 }
