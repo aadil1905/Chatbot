@@ -121,7 +121,7 @@ export default function EditAppointmentDialog({
       onOpenChange={setOpen}
     >
       <DialogTrigger
-        render={<Button variant="outline">Edit</Button>}
+        render={<button type="button" className="inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold shadow-sm transition hover:brightness-95" style={{ backgroundColor: "#0284c7", color: "#ffffff" }}>Edit appointment</button>}
       />
 
       <DialogContent className="sm:max-w-xl">

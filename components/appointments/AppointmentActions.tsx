@@ -8,15 +8,18 @@ import { Button } from "@/components/ui/button";
 
 import EditAppointmentDialog from "./EditAppointmentDialog";
 import DeleteAppointmentDialog from "./DeleteAppointmentDialog";
+import SendReminderButton from "./SendReminderButton";
 
 import type { Appointment } from "@/types/appointment";
 
 type Props = {
   appointment: Appointment;
+  reminderSentAt?: string | null;
 };
 
 export default function AppointmentActions({
   appointment,
+  reminderSentAt,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -51,8 +54,9 @@ export default function AppointmentActions({
   }
 
   return (
-    <div className="flex flex-wrap gap-3 pt-6">
+    <div className="flex flex-wrap gap-3">
       <EditAppointmentDialog appointment={appointment} />
+      <SendReminderButton appointmentId={appointment.id} sentAt={reminderSentAt ?? null} />
 
       <Button
         onClick={() => updateStatus("Confirmed")}

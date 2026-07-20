@@ -1,0 +1,1 @@
+export default function Loading() { return <div className="space-y-6 animate-pulse"><div className="h-10 w-72 rounded bg-muted" /><div className="grid gap-3 lg:grid-cols-7">{Array.from({ length: 7 }).map((_, index) => <div className="h-64 rounded-xl bg-muted" key={index} />)}</div></div>; }

@@ -18,6 +18,7 @@ model Appointment {
   patientName     String
   source          String   @default("WhatsApp")
   status          String   @default("Pending")
+  reminderSentAt  DateTime?
   treatment       String
   patientId       Int?
   patient         Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)

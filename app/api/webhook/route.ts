@@ -1,190 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  sendReplyButtons,
-  sendTextMessage,
-} from "@/lib/whatsapp";
-import {
-  bookings,
-  clearBooking,
-  continueBooking,
-  hasBooking,
-  startBooking,
-} from "@/lib/booking";
+import { sendListMessage, sendReplyButtons, sendTextMessage } from "@/lib/whatsapp";
+import { clearBooking, continueBooking, hasBooking, startBooking } from "@/lib/booking";
 import { getAIReply, clearConversation } from "@/lib/ai";
 import { detectIntent } from "@/lib/intent";
+import { clearLanguage, selectLanguage, welcomeFor } from "@/lib/language";
 
-console.log("Webhook route loaded");
+export async function GET(req: NextRequest) { const mode = req.nextUrl.searchParams.get("hub.mode"); const token = req.nextUrl.searchParams.get("hub.verify_token"); const challenge = req.nextUrl.searchParams.get("hub.challenge"); if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) return new Response(challenge!, { status: 200, headers: { "Content-Type": "text/plain" } }); return new Response("Forbidden", { status: 403 }); }
 
-export async function GET(req: NextRequest) {
-  const mode = req.nextUrl.searchParams.get("hub.mode");
-  const token = req.nextUrl.searchParams.get("hub.verify_token");
-  const challenge = req.nextUrl.searchParams.get("hub.challenge");
-
-  if (
-    mode === "subscribe" &&
-    token === process.env.VERIFY_TOKEN
-  ) {
-    return new Response(challenge!, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/plain",
-      },
-    });
-  }
-
-  return new Response("Forbidden", {
-    status: 403,
-  });
-}
+async function showLanguagePicker(to: string) { await sendListMessage(to, "Welcome to DentalAI.\n\nPlease choose your language / कृपया अपनी भाषा चुनें / कृपया तुमची भाषा निवडा", "Choose language", [{ title: "Languages", rows: [{ id: "LANG_EN", title: "English" }, { id: "LANG_HI", title: "Hindi" }, { id: "LANG_HINGLISH", title: "Hinglish" }, { id: "LANG_MR", title: "Marathi" }] }]); }
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-
-    const message =
-      body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-
-    if (!message) {
-      return NextResponse.json({ received: true });
-    }
-
-    const from = message.from;
-
-    let userMessage = "";
-
-    // Text message
-    if (message.type === "text") {
-      userMessage = message.text?.body ?? "";
-    }
-
-    // Interactive Button
-    else if (
-      message.type === "interactive" &&
-      message.interactive?.type === "button_reply"
-    ) {
-      userMessage =
-        message.interactive.button_reply.id;
-    }
-
-    // Interactive List
-    else if (
-      message.type === "interactive" &&
-      message.interactive?.type === "list_reply"
-    ) {
-      userMessage =
-        message.interactive.list_reply.id;
-    }
-
-    else {
-      return NextResponse.json({
-        received: true,
-      });
-    }
-
-   const normalized = userMessage
-  .toLowerCase()
-  .trim()
-  .replace(/[^\w\s]/g, "");
-
-const isGreeting =
-  /^hi+$/i.test(normalized) ||
-  /^hey+$/i.test(normalized) ||
-  /^hello+$/i.test(normalized) ||
-  normalized === "menu" ||
-  normalized === "start";
-
-if (isGreeting) {
-      clearBooking(from);
-      clearConversation(from);
-
-      await sendReplyButtons(
-        from,
-        "👋 Welcome to AI Patient Concierge\n\nHow can I help you today?",
-        [
-          {
-            id: "BOOK_APPOINTMENT",
-            title: "📅 Book",
-          },
-          {
-            id: "SERVICES",
-            title: "🩺 Services",
-          },
-          {
-            id: "CONTACT",
-            title: "📞 Contact",
-          },
-        ]
-      );
-
-      return NextResponse.json({
-        received: true,
-      });
-    }
-
-    // Cancel
-    if (
-      normalized === "cancel" ||
-      normalized === "cancel_booking"
-    ) {
-      clearBooking(from);
-
-      await sendTextMessage(
-        from,
-        "❌ Booking cancelled."
-      );
-
-      return NextResponse.json({
-        received: true,
-      });
-    }
-
-    // Continue booking
-    if (hasBooking(from)) {
-      await continueBooking(from, userMessage);
-
-      return NextResponse.json({
-        received: true,
-      });
-    }
-
-    // Book button
-    if (
-      userMessage === "BOOK_APPOINTMENT" ||
-      detectIntent(userMessage) ===
-        "BOOK_APPOINTMENT"
-    ) {
-      await startBooking(from);
-
-      return NextResponse.json({
-        received: true,
-      });
-    }
-
-    // AI Conversation
-    const aiReply = await getAIReply(
-      from,
-      userMessage
-    );
-
-    await sendTextMessage(
-      from,
-      aiReply.message
-    );
-
-    return NextResponse.json({
-      received: true,
-    });
-  } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: String(error),
-      },
-      {
-        status: 500,
-      }
-    );
-  }
+  try { const body = await req.json(); const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]; if (!message) return NextResponse.json({ received: true }); const from = message.from; const userMessage = message.type === "text" ? message.text?.body ?? "" : message.type === "interactive" && message.interactive?.type === "button_reply" ? message.interactive.button_reply.id : message.type === "interactive" && message.interactive?.type === "list_reply" ? message.interactive.list_reply.id : ""; if (!userMessage) return NextResponse.json({ received: true }); const normalized = userMessage.toLowerCase().trim().replace(/[^\w\s]/g, ""); const greeting = /^(hi+|hey+|hello+|menu|start)$/i.test(normalized);
+    if (greeting) { clearBooking(from); clearConversation(from); clearLanguage(from); await showLanguagePicker(from); return NextResponse.json({ received: true }); }
+    const language = selectLanguage(from, userMessage); if (language) { const copy = welcomeFor(language); await sendReplyButtons(from, copy.text, [{ id: "BOOK_APPOINTMENT", title: copy.book }, { id: "SERVICES", title: copy.services }, { id: "CONTACT", title: copy.contact }]); return NextResponse.json({ received: true }); }
+    if (normalized === "cancel" || normalized === "cancel_booking") { clearBooking(from); await sendTextMessage(from, "Booking cancelled."); return NextResponse.json({ received: true }); }
+    if (hasBooking(from)) { await continueBooking(from, userMessage); return NextResponse.json({ received: true }); }
+    if (userMessage === "BOOK_APPOINTMENT" || detectIntent(userMessage) === "BOOK_APPOINTMENT") { await startBooking(from); return NextResponse.json({ received: true }); }
+    const aiReply = await getAIReply(from, userMessage); await sendTextMessage(from, aiReply.message); return NextResponse.json({ received: true });
+  } catch (error) { console.error(error); return NextResponse.json({ success: false, error: String(error) }, { status: 500 }); }
 }
