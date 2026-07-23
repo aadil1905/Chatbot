@@ -1,25 +1,20 @@
-# DentalAI Premium v1.0 — Package 07
+# DentalAI Premium v1.0 — Package 07: Conversion Intelligence
 
-## Conversion & Revenue Intelligence
+## Added
 
-### Added
+- A clinic-safe conversion report based on your Lead CRM and follow-up records.
+- A 30-day funnel for enquiries, booked appointments, completed visits, and treatment conversions.
+- Key conversion metrics: enquiry-to-appointment rate, appointment-to-treatment rate, recovered leads, and WhatsApp-attributed value.
+- Lead source-quality comparison to show which sources create bookings and conversions.
+- Lost-reason analysis so the clinic can spot common reasons patients do not proceed.
+- Follow-up performance summary and direct links to Lead CRM and Follow-ups.
 
-- Conversion Intelligence reports based on the Lead CRM pipeline.
-- Enquiry-to-appointment and appointment-to-treatment conversion rates.
-- Lead-source performance and staff-recorded loss reasons.
-- Recovered-lost-lead count.
-- AI-attributed conversion value for WhatsApp leads, only when a team member marks the lead Converted and enters the value.
-- Conversion value field in Lead CRM.
+## Safety
 
-### Data integrity
+- The report only uses the signed-in clinic's CRM and follow-up data.
+- It does not read billing records that could belong to another clinic.
+- No database migration, API key, WhatsApp token, or environment-file change is needed.
 
-- Metrics use recorded CRM data and never invent revenue or conversions.
-- Billing totals continue to show actual invoice and payment data separately from AI-attributed conversion value.
+## Verification
 
-### Database migration
-
-Apply `20260720215000_add_conversion_intelligence` with:
-
-```bash
-npx prisma migrate deploy
-```
+- `npm run build` completed successfully before this package was created.

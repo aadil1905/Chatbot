@@ -1,10 +1,15 @@
-DentalAI Premium Package 06 - Follow-ups
+DentalAI Premium v1.0 — Package 07 installation
 
-Install after Premium Package 05.
+1. Extract this ZIP.
+2. Open the extracted folder.
+3. Copy its app folder into your project folder:
+   C:\Users\AADIL\ai-agency\chatbot
+4. When Windows asks, choose Replace files in the destination.
+5. In your Git Bash terminal, run:
+   npm run build
+6. If the build succeeds, run:
+   git add .
+   git commit -m "Install DentalAI Premium Package 7"
+   git push
 
-1. Extract this ZIP into your DentalAI project folder and choose Replace files when Windows asks.
-2. In Git Bash, run: npx prisma migrate deploy
-3. Then run: npx prisma generate
-4. Start the app with: npm run dev
-
-Do not add CRON_SECRET until you are ready to schedule automatic queue generation on Vercel.
+No Prisma migration is required for this package.
