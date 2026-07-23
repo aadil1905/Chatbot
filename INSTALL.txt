@@ -1,0 +1,10 @@
+DentalAI Premium Package 06 - Follow-ups
+
+Install after Premium Package 05.
+
+1. Extract this ZIP into your DentalAI project folder and choose Replace files when Windows asks.
+2. In Git Bash, run: npx prisma migrate deploy
+3. Then run: npx prisma generate
+4. Start the app with: npm run dev
+
+Do not add CRON_SECRET until you are ready to schedule automatic queue generation on Vercel.

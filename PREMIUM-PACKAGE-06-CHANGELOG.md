@@ -1,30 +1,23 @@
-# DentalAI Premium v1.0 — Package 06
+# DentalAI Premium v1.0 - Package 06
 
-## Automated Follow-ups & Patient Re-engagement
+## Follow-ups and patient re-engagement
 
 ### Added
 
-- A database-backed Follow-up Centre for new enquiries, missed appointments, and inactive patients.
-- **Refresh follow-up queue** to find eligible patients without duplicating current tasks.
-- Staff-controlled **Send WhatsApp** and **Mark complete** actions.
-- Status tracking for pending, sent, failed, and completed follow-ups.
-- A protected scheduled-job endpoint at `/api/cron/follow-ups` for a later production schedule.
+- Follow-up Centre for unbooked enquiries, missed appointments, and inactive patients.
+- A safe refresh action that creates only one active follow-up task per patient or lead.
+- Staff-controlled WhatsApp sending, with sent, pending, completed, and failed status tracking.
+- A protected cron endpoint for a future Vercel schedule. It requires `CRON_SECRET` before it can be used.
+- English, Hindi, and Marathi language options only. Hinglish has been removed.
 
 ### Safety
 
-- Messages are not silently auto-sent. A staff member must press **Send WhatsApp**.
-- This protects the clinic from sending free-form WhatsApp messages outside Meta's 24-hour customer-service window.
-- When production templates are approved in Meta, Package 10 can connect the scheduled job to those templates.
+- Nothing sends automatically from this package. A staff member must choose **Send WhatsApp**.
+- Template approval may still be required by WhatsApp for messages sent outside its 24-hour customer-service window.
 
-### Database migration
+### Included files
 
-Apply `20260720213000_add_follow_up_tasks` with:
+- Follow-up dashboard page and server actions.
+- Follow-up generator library and database migration.
+- Updated Prisma schema and navigation.
 
-```bash
-npx prisma migrate deploy
-```
-
-### Future production configuration
-
-- Set a private `CRON_SECRET` only in Vercel, never in GitHub.
-- Configure Vercel Cron later to call the protected endpoint daily.
