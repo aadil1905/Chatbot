@@ -1,29 +1,30 @@
 # DentalAI Premium v1.0 — Package 05
 
-## Persistent WhatsApp Conversations & Smart Booking
+## Clinic Operations & WhatsApp Booking Configuration
 
 ### Added
 
-- Persistent WhatsApp conversations and messages stored in the clinic database.
-- Incoming WhatsApp enquiries automatically create or update a Lead CRM record.
-- Persistent language choice and booking progress, safe across Vercel deployments and server restarts.
-- A booking confirmation automatically links the WhatsApp lead to its appointment and marks the lead as `BOOKED`.
-- New **Conversations** dashboard page for saved WhatsApp enquiries, last message, language, and any unfinished booking step.
+- Owner-only **Clinic Operations** settings page at `/dashboard/settings/operations`.
+- Clinic service catalogue: name, short description, duration, optional price, ordering, and active/inactive visibility.
+- Only active services are presented in the WhatsApp booking flow, including configured prices when supplied.
+- Per-day working hours: opening time, closing time, booking slot duration, and closed-day control.
+- WhatsApp booking slots now respect the saved service duration and clinic working hours.
+- Editable WhatsApp content for English, Hindi, and Marathi: welcome, booking introduction, and contact message.
+- Sidebar/settings navigation to the operations area for the clinic owner.
 
-### Improved
+### Behaviour preserved
 
-- WhatsApp sends its language selector for new greetings while retaining the conversation audit trail.
-- Both incoming patient messages and successful outgoing clinic replies are captured in the conversation history.
-- The AI can use the recent conversation context rather than responding as if every message is the first message.
+- Existing WhatsApp webhook, AI chatbot, appointment booking, patients, and dashboard architecture remain intact.
+- The WhatsApp language chooser provides **English, Hindi, and Marathi only**. Hinglish is not presented to patients.
+- A legacy database field may still exist from an earlier version, but it is not used by the interface or chatbot.
 
-### Database migration
+### Database
 
-Apply `20260720210000_add_persistent_whatsapp` with:
+This package includes the `20260720170000_add_clinic_configuration` Prisma migration. Run `npx prisma migrate deploy` after copying the files. Prisma skips it safely if it has already been applied.
 
-```bash
-npx prisma migrate deploy
-```
+### Verify after installation
 
-### Privacy note
-
-Conversation history contains patient communications. Only authorised clinic dashboard users should access this deployment. The package contains no `.env`, API key, WhatsApp token, or patient database export.
+1. Sign in as the clinic owner and open **Clinic settings → Manage clinic operations**.
+2. Add a service and a price, then set working hours and save.
+3. Send `Hi` to the configured WhatsApp number and select English, Hindi, or Marathi.
+4. Choose **Book appointment** and confirm the visible services and offered slots match the clinic settings.

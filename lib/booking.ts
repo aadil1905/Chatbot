@@ -1,4 +1,4 @@
-import { saveAppointment } from "@/lib/appointment";
+import { saveAppointment } from "./appointment";
 import { buildTimeSlots, defaultServices, getClinicConfiguration } from "./clinic-config";
 import { clearPersistentBooking, getBooking, markLeadBooked, startPersistentBooking, updateBooking } from "./whatsapp-conversations";
 import { sendListMessage, sendReplyButtons, sendTextMessage } from "./whatsapp";
