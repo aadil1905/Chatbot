@@ -166,6 +166,7 @@ model Clinic {
   inventoryItems InventoryItem[]
   labCases       LabCase[]
   launchChecklist ClinicLaunchChecklist?
+  auditLogs      AuditLog[]
 }
 
 model User {
@@ -180,6 +181,7 @@ model User {
   updatedAt    DateTime  @updatedAt
   clinic       Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   sessions     Session[]
+  auditLogs    AuditLog[]
 
   @@index([clinicId, role])
 }
@@ -275,6 +277,22 @@ model LeadActivity {
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId, createdAt])
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  clinicId   Int
+  userId     Int?
+  action     String
+  entityType String
+  entityId   String?
+  detail     String?
+  createdAt  DateTime @default(now())
+  clinic     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model ClinicFAQ {

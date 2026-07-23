@@ -1,23 +1,16 @@
 # DentalAI Premium v1.0 — Package 08
 
-## Clinical Workspace
+## Team access and owner activity history
 
-### Added
+- Adds a secure clinic-level audit history for important settings actions.
+- Records clinic profile changes, staff member creation, and staff access being enabled or disabled.
+- Shows the 20 most recent actions in **Clinic settings → Recent owner activity**.
+- Keeps audit entries isolated to the correct clinic.
 
-- A protected Clinical Workspace for dentists and authorised staff.
-- Patient dental chart with all 32 FDI tooth positions.
-- Tooth-level conditions: healthy, caries, filling, crown, root canal, missing, implant, and watch.
-- Tooth-specific clinical notes.
-- Recent clinical-record history beside the dental chart.
+## Database change
 
-### Database migration
+Adds the `AuditLog` table. Run the Prisma migration during installation.
 
-Apply `20260720217000_add_dental_chart` with:
+## Preserved
 
-```bash
-npx prisma migrate deploy
-```
-
-### Scope
-
-This package stores clinical chart data in the existing clinic database. It does not diagnose patients or replace the dentist’s clinical judgement.
+Existing WhatsApp integration, appointments, patients, billing, lead CRM, AI Coach, reports, and clinic configuration remain unchanged.

@@ -1,23 +1,18 @@
 # DentalAI Premium v1.0 — Package 09
 
-## Billing, Inventory & Lab Workflow
+## Clinical chart clarity
 
-### Added
+- Replaced the oversized photographic dental chart in the Overview with a compact, readable 32-tooth FDI chart.
+- Rebuilt Clinical workspace as a practical upper/lower jaw editor with clear tooth tiles, condition colours, selection state, and an always-usable note form.
+- Kept every tooth selectable and kept the existing clinical record save action intact.
+- Improved small-screen behaviour and keyboard focus visibility.
 
-- Inventory items with quantity, unit, reorder level, and cost-per-unit.
-- Low-stock alerts and controlled stock adjustments.
-- Lab case workflow linked to a patient and optionally to a treatment plan.
-- Lab case statuses: sent to lab, in progress, ready, delivered, and cancelled.
-- Operations dashboard with inventory and lab summary metrics.
+## No configuration changes
 
-### Database migration
+- No database migration is required.
+- No environment variables are required.
+- WhatsApp language choices are unchanged by this package; Hinglish is not added.
 
-Apply `20260720219000_add_inventory_and_lab_cases` with:
+## Verification
 
-```bash
-npx prisma migrate deploy
-```
-
-### Scope
-
-Billing remains the source of truth for invoices and payments. Inventory and lab data is operational tracking and does not auto-create financial entries.
+- Production build verified before delivery.
