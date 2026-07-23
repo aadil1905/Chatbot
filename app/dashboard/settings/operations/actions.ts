@@ -29,6 +29,25 @@ export async function toggleServiceAction(formData: FormData) {
   revalidatePath(operationsPath);
 }
 
+export async function updateServiceAction(formData: FormData) {
+  const owner = await requireOwner();
+  const id = Number(formData.get("id"));
+  const name = String(formData.get("name") || "").trim();
+  const rawPrice = String(formData.get("price") || "").trim();
+  if (!Number.isInteger(id) || !name) return;
+
+  await prisma.clinicService.updateMany({
+    where: { id, clinicId: owner.clinicId },
+    data: {
+      name,
+      description: String(formData.get("description") || "").trim() || null,
+      durationMinutes: Math.max(15, Number(formData.get("durationMinutes")) || 30),
+      price: rawPrice ? Number(rawPrice) : null,
+    },
+  });
+  revalidatePath(operationsPath);
+}
+
 export async function saveHoursAction(formData: FormData) {
   const owner = await requireOwner();
   const dayOfWeek = Number(formData.get("dayOfWeek"));
@@ -47,14 +66,12 @@ export async function saveWhatsAppCopyAction(formData: FormData) {
     clinicId: owner.clinicId,
     welcomeEnglish: String(formData.get("welcomeEnglish") || "").trim() || null,
     welcomeHindi: String(formData.get("welcomeHindi") || "").trim() || null,
-    welcomeHinglish: String(formData.get("welcomeHinglish") || "").trim() || null,
     welcomeMarathi: String(formData.get("welcomeMarathi") || "").trim() || null,
     bookingIntro: String(formData.get("bookingIntro") || "").trim() || null,
     contactMessage: String(formData.get("contactMessage") || "").trim() || null,
   }, update: {
     welcomeEnglish: String(formData.get("welcomeEnglish") || "").trim() || null,
     welcomeHindi: String(formData.get("welcomeHindi") || "").trim() || null,
-    welcomeHinglish: String(formData.get("welcomeHinglish") || "").trim() || null,
     welcomeMarathi: String(formData.get("welcomeMarathi") || "").trim() || null,
     bookingIntro: String(formData.get("bookingIntro") || "").trim() || null,
     contactMessage: String(formData.get("contactMessage") || "").trim() || null,

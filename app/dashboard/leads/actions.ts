@@ -47,3 +47,19 @@ export async function updateLeadAction(formData: FormData) {
   }
   revalidatePath(leadsPath);
 }
+
+export async function recoverLostLeadAction(formData: FormData) {
+  const user = await requireUser();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return;
+
+  const result = await prisma.lead.updateMany({
+    where: { id, clinicId: user.clinicId, stage: "LOST" },
+    data: { stage: "CONTACTED", recoveredAt: new Date(), nextFollowUpAt: new Date(), lastContactedAt: new Date(), lossReason: null },
+  });
+
+  if (result.count) {
+    await prisma.leadActivity.create({ data: { leadId: id, type: "LEAD_RECOVERED", content: "Lead reopened for a new follow-up" } });
+  }
+  revalidatePath(leadsPath);
+}

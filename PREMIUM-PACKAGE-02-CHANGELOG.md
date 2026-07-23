@@ -1,32 +1,24 @@
-# DentalAI Premium v1.0 — Package 02
+# DentalAI Premium v1.0 — Package 2: Clinic Operations Hub
 
-## Clinic operations configuration
+## Added and improved
 
-This package makes the premium base ready to configure for each clinic without editing application code.
+- Edit clinic services after adding them: name, description, duration, and price.
+- Activate or hide each service from WhatsApp bookings.
+- Configure each day’s opening time, closing time, closed status, and booking-slot duration.
+- View a small booking-slot preview for every active day.
+- Create clinic-specific English, Hindi, Hinglish, and Marathi WhatsApp welcome messages.
+- Set booking and contact messages without editing code.
 
-### Added
+## Where to use it
 
-- Owner-only **Clinic operations** page at `/dashboard/settings/operations`.
-- Configurable dental services with optional description, duration, price, display order and active/inactive control.
-- Configurable working hours, closed days and appointment-slot duration for every day of the week.
-- Clinic-specific WhatsApp welcome copy in English, Hindi, Hinglish and Marathi.
-- Editable booking-introduction and contact messages.
-- Database tables for services, clinic hours and WhatsApp wording.
+After installation, log in as the clinic owner and open:
 
-### WhatsApp booking improvements
+`Dashboard → Clinic settings → Manage clinic operations`
 
-- Booking now lists the clinic's active dental services instead of fixed generic choices.
-- Removed the unrelated hard-coded `Fever / Cold` option.
-- Appointment times now follow the configured hours and slot duration for the selected day.
-- The Services and Contact menu buttons now answer from the saved clinic configuration.
-- First-time clinic setup receives sensible dental-service and working-hour defaults, which the owner can edit.
+## Not included
 
-### Installation
+This package deliberately does not include the dental chart / teeth UI. That work is excluded for now, as requested.
 
-1. Extract this package into the existing DentalAI Premium project and replace files when Windows asks.
-2. Stop the development server if it is running.
-3. Run `npx prisma generate`.
-4. Run `npx prisma migrate deploy`.
-5. Run `npm run dev`, sign in as the clinic owner, then open **Clinic settings → Manage clinic operations**.
+## Verification
 
-No API key, WhatsApp token or `.env.local` value is included in this package.
+`npm run build` completed successfully.

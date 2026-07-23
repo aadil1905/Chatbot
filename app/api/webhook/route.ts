@@ -29,7 +29,6 @@ async function showLanguagePicker(to: string) {
       rows: [
         { id: "LANG_EN", title: "English" },
         { id: "LANG_HI", title: "Hindi" },
-        { id: "LANG_HINGLISH", title: "Hinglish" },
         { id: "LANG_MR", title: "Marathi" },
       ],
     }],
