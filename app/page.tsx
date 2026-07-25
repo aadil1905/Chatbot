@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { clinicBrand } from "@/lib/brand";
 
 export default function Home() {
   const [message, setMessage] = useState("");
@@ -25,12 +26,14 @@ export default function Home() {
     <main className="flex min-h-screen items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-xl shadow-lg w-[420px]">
         <h1 className="text-3xl font-bold mb-4">
-          AI Business Chatbot
+          {clinicBrand.doctorName}
         </h1>
+        <p className="mb-2 text-sm font-semibold text-slate-700">{clinicBrand.clinicName}</p>
+        <p className="mb-4 text-sm leading-6 text-slate-600">{clinicBrand.address}</p>
 
         <textarea
           className="border rounded-lg w-full p-3 h-40"
-          placeholder="Ask anything..."
+          placeholder="Ask about appointments, services, or clinic timings..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />

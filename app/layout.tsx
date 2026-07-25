@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
+import { clinicBrand } from "@/lib/brand";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DentalAI",
-  description: "AI Dental Clinic Management System",
+  title: `${clinicBrand.doctorName} | ${clinicBrand.clinicName}`,
+  description: `${clinicBrand.clinicName} dashboard and chatbot for ${clinicBrand.address}.`,
 };
 
 export default function RootLayout({

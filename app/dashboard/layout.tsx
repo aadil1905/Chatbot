@@ -1,6 +1,7 @@
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import { requireUser } from "@/lib/auth";
+import { clinicBrand } from "@/lib/brand";
 import LogoutButton from "./logout-button";
 
 export default async function DashboardLayout({
@@ -20,7 +21,8 @@ export default async function DashboardLayout({
             user={{
               fullName: user.fullName,
               role: user.role,
-              clinicName: user.clinic.name,
+              clinicName: clinicBrand.doctorName,
+              clinicAddress: clinicBrand.address,
             }}
             notifications={[]}
           />

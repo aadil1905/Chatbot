@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "seed:services": "node scripts/seed-deepika-services.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

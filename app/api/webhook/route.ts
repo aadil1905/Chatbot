@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clearBooking, continueBooking, hasBooking, startBooking } from "@/lib/booking";
 import { clearConversation, getAIReply } from "@/lib/ai";
+import { clinicBrand } from "@/lib/brand";
 import { getClinicConfiguration } from "@/lib/clinic-config";
 import { detectIntent } from "@/lib/intent";
 import { clearLanguage, selectLanguage, welcomeFor } from "@/lib/language";
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
 async function showLanguagePicker(to: string) {
   await sendListMessage(
     to,
-    "Welcome to DentalAI. Please choose your language.",
+    `Welcome to ${clinicBrand.clinicName}. Please choose your language.`,
     "Choose language",
     [{
       title: "Languages",

@@ -1,10 +1,15 @@
 import { prisma } from "@/lib/prisma";
 
 export const defaultServices = [
-  { name: "Dental consultation", description: "Discuss a dental concern with the dentist", durationMinutes: 30, sortOrder: 1 },
-  { name: "Dental cleaning", description: "Routine scaling and cleaning visit", durationMinutes: 45, sortOrder: 2 },
-  { name: "Root canal consultation", description: "Assessment and treatment planning", durationMinutes: 30, sortOrder: 3 },
-  { name: "Follow-up visit", description: "Review after a previous dental visit", durationMinutes: 20, sortOrder: 4 },
+  { name: "Dentures", description: "Removable replacement teeth for missing teeth", durationMinutes: 45, sortOrder: 1 },
+  { name: "Implants", description: "Dental implant consultation and treatment planning", durationMinutes: 45, sortOrder: 2 },
+  { name: "Root Canals", description: "Root canal consultation and treatment", durationMinutes: 45, sortOrder: 3 },
+  { name: "Braces", description: "Orthodontic consultation for teeth alignment", durationMinutes: 45, sortOrder: 4 },
+  { name: "Aesthetic Dentistry", description: "Cosmetic dental care and smile improvement", durationMinutes: 45, sortOrder: 5 },
+  { name: "Kids Dentistry", description: "Dental care for children", durationMinutes: 30, sortOrder: 6 },
+  { name: "Gum Treatment", description: "Gum health consultation and treatment", durationMinutes: 45, sortOrder: 7 },
+  { name: "Extractions", description: "Tooth extraction consultation and procedure", durationMinutes: 45, sortOrder: 8 },
+  { name: "Surgeries", description: "Dental and oral surgical consultation", durationMinutes: 60, sortOrder: 9 },
 ];
 
 export const defaultHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
