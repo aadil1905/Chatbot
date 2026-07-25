@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+  "node_modules",
+  "deepika-dental-white",
+  "DentalAI-Premium-v1.0-Build-Fix-Appointments",
+  "DentalAI-Premium-v1.0-Client-Demo-UI-2026",
+  "DentalAI-Premium-v1.0-Package-10-Clinical"
+]
 }
