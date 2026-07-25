@@ -117,18 +117,43 @@ model TreatmentPlan {
   status        String   @default("Proposed")
   estimatedCost Int?
   serviceId     Int?
+
+  // Keep this temporarily for backward compatibility
   toothNumber   String?
+
   unitPrice     Int?
   notes         String?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
   invoices      Invoice[]
   labCases      LabCase[]
   service       ClinicService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
+  // New relation
+  selectedTeeth TreatmentPlanTooth[]
+
   @@index([patientId, status])
   @@index([serviceId])
+}
+
+model TreatmentPlanTooth {
+  id Int @id @default(autoincrement())
+
+  treatmentPlanId Int
+
+  toothNumber String
+
+  createdAt DateTime @default(now())
+
+  treatmentPlan TreatmentPlan
+    @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+
+  @@index([treatmentPlanId])
+
+  @@unique([treatmentPlanId, toothNumber])
 }
 
 model Prescription {
@@ -227,17 +252,30 @@ model ClinicHours {
 }
 
 model ClinicWhatsAppSettings {
-  id                 Int      @id @default(autoincrement())
-  clinicId           Int      @unique
-  welcomeEnglish     String?
-  welcomeHindi       String?
-  welcomeHinglish    String?
-  welcomeMarathi     String?
-  contactMessage     String?
-  bookingIntro       String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  clinic             Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  id                Int      @id @default(autoincrement())
+  clinicId          Int      @unique
+
+  // Meta WhatsApp identifiers for multi-clinic routing
+  phoneNumberId     String?  @unique
+  businessAccountId String?
+
+  // Clinic-specific welcome messages
+  welcomeEnglish    String?
+  welcomeHindi      String?
+  welcomeMarathi    String?
+
+  // Other WhatsApp messages
+  contactMessage    String?
+  bookingIntro      String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  clinic            Clinic   @relation(
+    fields: [clinicId],
+    references: [id],
+    onDelete: Cascade
+  )
 }
 
 model Lead {
