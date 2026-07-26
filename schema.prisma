@@ -126,9 +126,21 @@ model TreatmentPlan {
   invoices      Invoice[]
   labCases      LabCase[]
   service       ClinicService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  selectedTeeth TreatmentPlanTooth[]
 
   @@index([patientId, status])
   @@index([serviceId])
+}
+
+model TreatmentPlanTooth {
+  id              Int           @id @default(autoincrement())
+  treatmentPlanId Int
+  toothNumber     String
+  createdAt       DateTime      @default(now())
+  treatmentPlan   TreatmentPlan @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([treatmentPlanId, toothNumber])
+  @@index([toothNumber])
 }
 
 model Prescription {

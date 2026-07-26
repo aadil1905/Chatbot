@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ScanLine, Sparkles, Stethoscope } from "lucide-react";
 import { useMemo, useState } from "react";
 import { saveDentalChartEntryAction } from "@/app/dashboard/clinical-workspace/actions";
@@ -31,8 +32,8 @@ const conditionClasses: Record<string, string> = {
   WATCH: "border-orange-200 bg-orange-50 text-orange-700",
 };
 
-function ToothRow({ title, teeth, selectedTooth, entries, onSelect }: {
-  title: string; teeth: string[]; selectedTooth: string; entries: Map<string, Entry>; onSelect: (tooth: string) => void;
+function ToothRow({ title, teeth, selectedTooth, selectedTeeth, entries, onSelect }: {
+  title: string; teeth: string[]; selectedTooth: string; selectedTeeth: string[]; entries: Map<string, Entry>; onSelect: (tooth: string) => void;
 }) {
   return <div>
     <div className="mb-2 flex items-center justify-between gap-3">
@@ -44,9 +45,11 @@ function ToothRow({ title, teeth, selectedTooth, entries, onSelect }: {
         const entry = entries.get(tooth);
         const condition = entry?.condition || "HEALTHY";
         const selected = selectedTooth === tooth;
+        const selectedForPlan = selectedTeeth.includes(tooth);
         return <button key={tooth} type="button" onClick={() => onSelect(tooth)}
-          className={`inline-flex min-h-[72px] min-w-0 flex-col items-center justify-center rounded-xl border px-1 py-2 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${conditionClasses[condition] || conditionClasses.HEALTHY} ${selected ? "ring-2 ring-violet-600 ring-offset-2" : ""}`}
+          className={`relative inline-flex min-h-[72px] min-w-0 flex-col items-center justify-center rounded-xl border px-1 py-2 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${conditionClasses[condition] || conditionClasses.HEALTHY} ${selected ? "ring-2 ring-violet-600 ring-offset-2" : ""} ${selectedForPlan ? "outline outline-2 outline-sky-600" : ""}`}
           aria-label={`Tooth ${tooth}, ${conditionLabels[condition] || "Healthy"}`}>
+          {selectedForPlan && <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-sky-700" />}
           <span className="w-full text-center text-sm font-bold leading-none">{tooth}</span>
           <span className="mt-1 w-full text-center text-[10px] font-semibold leading-none opacity-80">{conditionShortLabels[condition] || "H."}</span>
         </button>;
@@ -61,6 +64,7 @@ function SummaryCard({ label, value, tone = "text-slate-900" }: { label: string;
 
 export default function DentalChartEditor({ patientId, entries }: { patientId: number; entries: Entry[] }) {
   const [selectedTooth, setSelectedTooth] = useState(entries[0]?.toothNumber || "18");
+  const [selectedTeeth, setSelectedTeeth] = useState<string[]>([]);
   const [view, setView] = useState<View>("chart");
   const [scanRun, setScanRun] = useState(false);
   const entryMap = useMemo(() => new Map(entries.map((entry) => [entry.toothNumber, entry])), [entries]);
@@ -70,7 +74,12 @@ export default function DentalChartEditor({ patientId, entries }: { patientId: n
   const needsReview = values.filter((entry) => ["CARIES", "WATCH", "ROOT_CANAL"].includes(entry.condition)).length;
   const completedCare = values.filter((entry) => ["FILLING", "CROWN", "ROOT_CANAL", "IMPLANT"].includes(entry.condition)).length;
 
-  const selectTooth = (tooth: string) => { setSelectedTooth(tooth); setView("chart"); };
+  const selectTooth = (tooth: string) => {
+    setSelectedTooth(tooth);
+    setSelectedTeeth((current) => current.includes(tooth) ? current.filter((item) => item !== tooth) : [...current, tooth]);
+    setView("chart");
+  };
+  const selectedPlanHref = `/dashboard/treatment-plans/new?patientId=${patientId}&teeth=${encodeURIComponent(selectedTeeth.join(","))}`;
   const tabs: Array<{ id: View; label: string; icon: typeof Stethoscope }> = [
     { id: "chart", label: "Chart", icon: Stethoscope }, { id: "scan", label: "Scan", icon: ScanLine }, { id: "insights", label: "Insights", icon: Sparkles },
   ];
@@ -78,8 +87,19 @@ export default function DentalChartEditor({ patientId, entries }: { patientId: n
   return <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div><h2 className="text-xl font-bold text-slate-900">Dental chart</h2><p className="mt-1 text-sm text-slate-500">Document each tooth using the FDI numbering system.</p></div>
+        <div><h2 className="text-xl font-bold text-slate-900">Dental chart</h2><p className="mt-1 text-sm text-slate-500">Click teeth to select them for a treatment plan, then update clinical notes from the side panel.</p></div>
         <div className={`rounded-full px-3 py-1 text-sm font-semibold ${conditionClasses[selectedCondition] || conditionClasses.HEALTHY}`}>Selected tooth {selectedTooth}: {conditionLabels[selectedCondition] || "Healthy"}</div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Treatment plan teeth</p>
+          <p className="mt-1 text-sm text-slate-600">{selectedTeeth.length ? selectedTeeth.join(", ") : "Select one or more teeth on the chart."}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {selectedTeeth.length > 0 && <button type="button" onClick={() => setSelectedTeeth([])} className="rounded-xl border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-sky-50">Clear</button>}
+          <Link aria-disabled={selectedTeeth.length === 0} href={selectedPlanHref} className={`rounded-xl px-4 py-2 text-sm font-semibold shadow-sm ${selectedTeeth.length ? "bg-sky-700 text-white hover:bg-sky-800" : "pointer-events-none bg-slate-200 text-slate-500"}`}>Create plan</Link>
+        </div>
       </div>
 
       <div role="tablist" aria-label="Dental chart tools" className="mt-5 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
@@ -90,9 +110,9 @@ export default function DentalChartEditor({ patientId, entries }: { patientId: n
       {view === "chart" && <>
         <div className="mt-5 flex flex-wrap gap-2">{Object.entries(conditionLabels).map(([key, label]) => <span key={key} className={`rounded-full border px-2.5 py-1 text-xs font-medium ${conditionClasses[key]}`}>{label}</span>)}</div>
         <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
-          <ToothRow title="Upper jaw" teeth={upperTeeth} selectedTooth={selectedTooth} entries={entryMap} onSelect={selectTooth} />
+          <ToothRow title="Upper jaw" teeth={upperTeeth} selectedTooth={selectedTooth} selectedTeeth={selectedTeeth} entries={entryMap} onSelect={selectTooth} />
           <div className="my-6 border-t border-dashed border-slate-200" />
-          <ToothRow title="Lower jaw" teeth={lowerTeeth} selectedTooth={selectedTooth} entries={entryMap} onSelect={selectTooth} />
+          <ToothRow title="Lower jaw" teeth={lowerTeeth} selectedTooth={selectedTooth} selectedTeeth={selectedTeeth} entries={entryMap} onSelect={selectTooth} />
         </div>
         <p className="mt-4 text-center text-xs text-slate-500">The tooth number and condition indicator are centered in every tile for quick review.</p>
       </>}

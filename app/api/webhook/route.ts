@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { clearBooking, continueBooking, hasBooking, startBooking } from "@/lib/booking";
 import { clearConversation, getAIReply } from "@/lib/ai";
 import { clinicBrand } from "@/lib/brand";
-import { getClinicConfiguration } from "@/lib/clinic-config";
+import { formatClinicInformation, getClinicConfiguration } from "@/lib/clinic-config";
 import { detectIntent } from "@/lib/intent";
 import { clearLanguage, selectLanguage, welcomeFor } from "@/lib/language";
 import { sendListMessage, sendReplyButtons, sendTextMessage } from "@/lib/whatsapp";
@@ -105,9 +105,7 @@ export async function POST(req: NextRequest) {
 
     if (userMessage === "CONTACT") {
       const clinic = await getClinicConfiguration();
-      const fallback = clinic
-        ? `${clinic.name}\n${clinic.phone ? `Phone: ${clinic.phone}\n` : ""}${clinic.email ? `Email: ${clinic.email}\n` : ""}${clinic.address || ""}`.trim()
-        : "Please contact the clinic directly for assistance.";
+      const fallback = formatClinicInformation(clinic);
       await sendTextMessage(from, clinic?.whatsapp?.contactMessage || fallback);
       return NextResponse.json({ received: true });
     }

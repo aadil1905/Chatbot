@@ -2,4 +2,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { treatmentPlanSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-export async function POST(request: Request) { try { const data = treatmentPlanSchema.parse(await request.json()); const price = data.unitPrice === "" || data.unitPrice === undefined ? (data.estimatedCost === "" || data.estimatedCost === undefined ? null : data.estimatedCost) : data.unitPrice; const plan = await prisma.treatmentPlan.create({ data: { patientId: data.patientId, title: data.title, status: data.status, serviceId: data.serviceId === "" || data.serviceId === undefined ? null : data.serviceId, toothNumber: data.toothNumber || null, unitPrice: price, estimatedCost: price, notes: data.notes || null } }); return NextResponse.json(plan, { status: 201 }); } catch (error) { if (error instanceof ZodError) return NextResponse.json({ error: "Validation failed.", issues: error.flatten() }, { status: 400 }); return NextResponse.json({ error: "Could not create treatment plan." }, { status: 500 }); } }
+
+export async function POST(request: Request) {
+  try {
+    const data = treatmentPlanSchema.parse(await request.json());
+    const price = data.unitPrice === "" || data.unitPrice === undefined ? (data.estimatedCost === "" || data.estimatedCost === undefined ? null : data.estimatedCost) : data.unitPrice;
+    const toothNumbers = Array.from(new Set([...(data.toothNumbers || []), data.toothNumber || ""].map((tooth) => tooth.trim()).filter(Boolean)));
+    const plan = await prisma.treatmentPlan.create({
+      data: {
+        patientId: data.patientId,
+        title: data.title,
+        status: data.status,
+        serviceId: data.serviceId === "" || data.serviceId === undefined ? null : data.serviceId,
+        toothNumber: toothNumbers[0] || null,
+        unitPrice: price,
+        estimatedCost: price,
+        notes: data.notes || null,
+        selectedTeeth: toothNumbers.length ? { create: toothNumbers.map((toothNumber) => ({ toothNumber })) } : undefined,
+      },
+    });
+    return NextResponse.json(plan, { status: 201 });
+  } catch (error) {
+    if (error instanceof ZodError) return NextResponse.json({ error: "Validation failed.", issues: error.flatten() }, { status: 400 });
+    return NextResponse.json({ error: "Could not create treatment plan." }, { status: 500 });
+  }
+}

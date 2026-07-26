@@ -60,6 +60,7 @@ export const treatmentPlanSchema = z.object({
   estimatedCost: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
   serviceId: z.union([z.literal(""), z.coerce.number().int().positive()]).optional(),
   toothNumber: z.string().trim().max(4).optional(),
+  toothNumbers: z.array(z.string().trim().min(1).max(4)).max(32).optional(),
   unitPrice: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
   notes: z.string().max(5000).optional(),
 });

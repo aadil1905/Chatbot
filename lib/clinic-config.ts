@@ -31,6 +31,25 @@ export async function getClinicConfiguration() {
   });
 }
 
+const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export function formatClinicInformation(clinic: Awaited<ReturnType<typeof getClinicConfiguration>> | null | undefined) {
+  if (!clinic) return "Clinic details are being updated. Please contact the clinic team directly for assistance.";
+
+  const contactLines = [
+    clinic.name,
+    clinic.phone ? `Phone: ${clinic.phone}` : null,
+    clinic.email ? `Email: ${clinic.email}` : null,
+    clinic.address ? `Address: ${clinic.address}` : null,
+  ].filter(Boolean);
+
+  const hourLines = clinic.hours.length
+    ? clinic.hours.map((item) => `${dayNames[item.dayOfWeek] || `Day ${item.dayOfWeek}`}: ${item.isClosed ? "Closed" : `${item.openTime} - ${item.closeTime}`}`)
+    : defaultHours.map((item) => `${dayNames[item.dayOfWeek]}: ${item.isClosed ? "Closed" : `${item.openTime} - ${item.closeTime}`}`);
+
+  return [...contactLines, "", "Clinic hours:", ...hourLines].join("\n").trim();
+}
+
 export function buildTimeSlots(openTime: string, closeTime: string, slotMinutes: number) {
   const [openHour, openMinute] = openTime.split(":").map(Number);
   const [closeHour, closeMinute] = closeTime.split(":").map(Number);

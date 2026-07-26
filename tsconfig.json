@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "*.tsx",
+    "DentalAI-Premium-v1.0-Build-Fix-Appointment-20260722",
+    "DentalAI-Premium-v1.0-Client-Demo-UI-20260722171553",
+    "DentalAI-Premium-v1.0-Package-10-Clinical-Chart-Interactions-QA-Verified"
+  ]
 }
