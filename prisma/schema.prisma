@@ -9,42 +9,42 @@ datasource db {
 }
 
 model Appointment {
-  id              Int      @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   phone           String
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
   appointmentDate DateTime
   appointmentTime String
   notes           String?
   patientName     String
-  source          String   @default("WhatsApp")
-  status          String   @default("Pending")
+  source          String    @default("WhatsApp")
+  status          String    @default("Pending")
   reminderSentAt  DateTime?
   treatment       String
   patientId       Int?
-  patient         Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  patient         Patient?  @relation(fields: [patientId], references: [id], onDelete: SetNull)
   lead            Lead?
 
   @@index([patientId])
 }
 
 model Patient {
-  id           Int           @id @default(autoincrement())
-  fullName     String
-  phone        String        @unique
-  email        String?
-  dateOfBirth  DateTime?
-  gender       String?
-  address      String?
-  medicalNotes String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  appointments Appointment[]
-  clinicalRecords ClinicalRecord[]
-  treatmentPlans  TreatmentPlan[]
-  invoices        Invoice[]
-  prescriptions   Prescription[]
+  id                 Int                @id @default(autoincrement())
+  fullName           String
+  phone              String             @unique
+  email              String?
+  dateOfBirth        DateTime?
+  gender             String?
+  address            String?
+  medicalNotes       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  appointments       Appointment[]
+  clinicalRecords    ClinicalRecord[]
+  treatmentPlans     TreatmentPlan[]
+  invoices           Invoice[]
+  prescriptions      Prescription[]
   dentalChartEntries DentalChartEntry[]
-  labCases        LabCase[]
+  labCases           LabCase[]
 
   @@index([fullName])
 }
@@ -111,28 +111,21 @@ model DentalChartEntry {
 }
 
 model TreatmentPlan {
-  id            Int      @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   patientId     Int
   title         String
-  status        String   @default("Proposed")
+  status        String         @default("Proposed")
   estimatedCost Int?
   serviceId     Int?
-
-  // Keep this temporarily for backward compatibility
   toothNumber   String?
-
   unitPrice     Int?
   notes         String?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
   invoices      Invoice[]
   labCases      LabCase[]
   service       ClinicService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-
-  // New relation
   selectedTeeth TreatmentPlanTooth[]
 
   @@index([patientId, status])
@@ -140,71 +133,65 @@ model TreatmentPlan {
 }
 
 model TreatmentPlanTooth {
-  id Int @id @default(autoincrement())
-
+  id              Int           @id @default(autoincrement())
   treatmentPlanId Int
-
-  toothNumber String
-
-  createdAt DateTime @default(now())
-
-  treatmentPlan TreatmentPlan
-    @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
-
-  @@index([treatmentPlanId])
+  toothNumber     String
+  createdAt       DateTime      @default(now())
+  treatmentPlan   TreatmentPlan @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
 
   @@unique([treatmentPlanId, toothNumber])
+  @@index([toothNumber])
 }
 
 model Prescription {
-  id           Int      @id @default(autoincrement())
-  patientId    Int
+  id               Int      @id @default(autoincrement())
+  patientId        Int
   clinicalRecordId Int?
-  prescribedOn DateTime @default(now())
-  diagnosis    String?
-  instructions String?
-  medicines    String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  prescribedOn     DateTime @default(now())
+  diagnosis        String?
+  instructions     String?
+  medicines        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  patient          Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@index([patientId, prescribedOn])
 }
 
 model Clinic {
-  id        Int      @id @default(autoincrement())
-  name      String
-  phone     String?
-  email     String?
-  address   String?
-  timezone  String   @default("Asia/Kolkata")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
-  services  ClinicService[]
-  hours     ClinicHours[]
-  whatsapp  ClinicWhatsAppSettings?
-  leads     Lead[]
-  faqs      ClinicFAQ[]
-  conversations WhatsAppConversation[]
-  followUpTasks FollowUpTask[]
-  inventoryItems InventoryItem[]
-  labCases       LabCase[]
+  id              Int                     @id @default(autoincrement())
+  name            String
+  phone           String?
+  email           String?
+  address         String?
+  timezone        String                  @default("Asia/Kolkata")
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  users           User[]
+  services        ClinicService[]
+  hours           ClinicHours[]
+  whatsapp        ClinicWhatsAppSettings?
+  leads           Lead[]
+  faqs            ClinicFAQ[]
+  conversations   WhatsAppConversation[]
+  followUpTasks   FollowUpTask[]
+  inventoryItems  InventoryItem[]
+  labCases        LabCase[]
   launchChecklist ClinicLaunchChecklist?
-  auditLogs      AuditLog[]
+  auditLogs       AuditLog[]
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   clinicId     Int
   fullName     String
-  email        String    @unique
+  email        String     @unique
   passwordHash String
-  role         String    @default("RECEPTIONIST")
-  active       Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  clinic       Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  role         String     @default("RECEPTIONIST")
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  clinic       Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   sessions     Session[]
   auditLogs    AuditLog[]
 
@@ -222,82 +209,69 @@ model Session {
 }
 
 model ClinicService {
-  id              Int      @id @default(autoincrement())
+  id              Int             @id @default(autoincrement())
   clinicId        Int
   name            String
   description     String?
-  durationMinutes Int      @default(30)
+  durationMinutes Int             @default(30)
   price           Int?
-  active          Boolean  @default(true)
-  sortOrder       Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  active          Boolean         @default(true)
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  clinic          Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   treatmentPlans  TreatmentPlan[]
 
   @@index([clinicId, active, sortOrder])
 }
 
 model ClinicHours {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   clinicId    Int
   dayOfWeek   Int
-  openTime    String   @default("09:00")
-  closeTime   String   @default("18:00")
-  slotMinutes Int      @default(30)
-  isClosed    Boolean  @default(false)
-  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  openTime    String  @default("09:00")
+  closeTime   String  @default("18:00")
+  slotMinutes Int     @default(30)
+  isClosed    Boolean @default(false)
+  clinic      Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@unique([clinicId, dayOfWeek])
 }
 
 model ClinicWhatsAppSettings {
-  id                Int      @id @default(autoincrement())
-  clinicId          Int      @unique
-
-  // Meta WhatsApp identifiers for multi-clinic routing
-  phoneNumberId     String?  @unique
-  businessAccountId String?
-
-  // Clinic-specific welcome messages
-  welcomeEnglish    String?
-  welcomeHindi      String?
-  welcomeMarathi    String?
-
-  // Other WhatsApp messages
-  contactMessage    String?
-  bookingIntro      String?
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  clinic            Clinic   @relation(
-    fields: [clinicId],
-    references: [id],
-    onDelete: Cascade
-  )
+  id              Int      @id @default(autoincrement())
+  clinicId        Int      @unique
+  welcomeEnglish  String?
+  welcomeHindi    String?
+  welcomeHinglish String?
+  welcomeMarathi  String?
+  contactMessage  String?
+  bookingIntro    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }
 
 model Lead {
-  id                  Int      @id @default(autoincrement())
+  id                  Int            @id @default(autoincrement())
   clinicId            Int
   fullName            String
   phone               String
   email               String?
   serviceInterest     String?
-  source              String   @default("WhatsApp")
-  stage               String   @default("NEW")
+  source              String         @default("WhatsApp")
+  stage               String         @default("NEW")
   notes               String?
   lossReason          String?
   conversionValue     Int?
   recoveredAt         DateTime?
   lastContactedAt     DateTime?
   nextFollowUpAt      DateTime?
-  bookedAppointmentId Int?     @unique
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  clinic              Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  bookedAppointment   Appointment? @relation(fields: [bookedAppointmentId], references: [id], onDelete: SetNull)
+  bookedAppointmentId Int?           @unique
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  clinic              Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  bookedAppointment   Appointment?   @relation(fields: [bookedAppointmentId], references: [id], onDelete: SetNull)
   activities          LeadActivity[]
   followUpTasks       FollowUpTask[]
 
@@ -349,14 +323,14 @@ model ClinicFAQ {
 }
 
 model WhatsAppConversation {
-  id            Int      @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
   clinicId      Int
   phone         String
   language      String?
-  lastMessageAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  clinic        Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  lastMessageAt DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  clinic        Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   messages      WhatsAppMessage[]
   booking       WhatsAppBooking?
 
@@ -365,29 +339,29 @@ model WhatsAppConversation {
 }
 
 model WhatsAppMessage {
-  id             Int      @id @default(autoincrement())
+  id             Int                  @id @default(autoincrement())
   conversationId Int
   direction      String
   content        String
-  messageType    String   @default("TEXT")
-  createdAt      DateTime @default(now())
+  messageType    String               @default("TEXT")
+  createdAt      DateTime             @default(now())
   conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
 }
 
 model WhatsAppBooking {
-  id             Int      @id @default(autoincrement())
-  conversationId Int      @unique
-  step           String   @default("name")
-  patientName    String   @default("")
-  phone          String   @default("")
-  appointmentDate String  @default("")
-  appointmentTime String  @default("")
-  reason         String   @default("")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id              Int                  @id @default(autoincrement())
+  conversationId  Int                  @unique
+  step            String               @default("name")
+  patientName     String               @default("")
+  phone           String               @default("")
+  appointmentDate String               @default("")
+  appointmentTime String               @default("")
+  reason          String               @default("")
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  conversation    WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([updatedAt])
 }
@@ -453,14 +427,14 @@ model LabCase {
 }
 
 model ClinicLaunchChecklist {
-  id                         Int      @id @default(autoincrement())
-  clinicId                   Int      @unique
-  whatsappWebhookVerified    Boolean  @default(false)
-  whatsappTemplatesApproved  Boolean  @default(false)
-  backupOwnerAssigned        Boolean  @default(false)
-  clinicTeamTrained          Boolean  @default(false)
-  backupPlanReviewed         Boolean  @default(false)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  clinic                     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  id                        Int      @id @default(autoincrement())
+  clinicId                  Int      @unique
+  whatsappWebhookVerified   Boolean  @default(false)
+  whatsappTemplatesApproved Boolean  @default(false)
+  backupOwnerAssigned       Boolean  @default(false)
+  clinicTeamTrained         Boolean  @default(false)
+  backupPlanReviewed        Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  clinic                    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }

@@ -55,63 +55,14 @@ export const clinicalRecordSchema = z.object({
 
 export const treatmentPlanSchema = z.object({
   patientId: z.coerce.number().int().positive(),
-
-  title: z
-    .string()
-    .trim()
-    .min(2, "Plan title is required")
-    .max(200),
-
-  status: z.enum([
-    "Proposed",
-    "Accepted",
-    "In Progress",
-    "Completed",
-    "Cancelled",
-  ]),
-
-  estimatedCost: z
-    .union([
-      z.literal(""),
-      z.coerce.number().int().nonnegative(),
-    ])
-    .optional(),
-
-  serviceId: z
-    .union([
-      z.literal(""),
-      z.coerce.number().int().positive(),
-    ])
-    .optional(),
-
-  // Old field (keep temporarily)
-  toothNumber: z
-    .string()
-    .trim()
-    .max(4)
-    .optional(),
-
-  // New field for multiple teeth
-  toothNumbers: z
-    .array(
-      z
-        .string()
-        .trim()
-        .regex(/^[1-4][1-8]$/, "Invalid tooth number")
-    )
-    .default([]),
-
-  unitPrice: z
-    .union([
-      z.literal(""),
-      z.coerce.number().int().nonnegative(),
-    ])
-    .optional(),
-
-  notes: z
-    .string()
-    .max(5000)
-    .optional(),
+  title: z.string().trim().min(2, "Plan title is required").max(200),
+  status: z.enum(["Proposed", "Accepted", "In Progress", "Completed", "Cancelled"]),
+  estimatedCost: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
+  serviceId: z.union([z.literal(""), z.coerce.number().int().positive()]).optional(),
+  toothNumber: z.string().trim().max(4).optional(),
+  toothNumbers: z.array(z.string().trim().min(1).max(4)).max(32).optional(),
+  unitPrice: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
+  notes: z.string().max(5000).optional(),
 });
 
 export const prescriptionSchema = z.object({

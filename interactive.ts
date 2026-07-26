@@ -14,7 +14,7 @@ export async function sendMainMenu(to: string) {
         interactive: {
           type: "button",
           body: {
-            text: "🦷 Welcome to Smile Dental Clinic!\n\nHow can I help you today?",
+            text: "Welcome to the dental clinic.\n\nHow can I help you today?",
           },
           action: {
             buttons: [
@@ -22,28 +22,28 @@ export async function sendMainMenu(to: string) {
                 type: "reply",
                 reply: {
                   id: "book_appointment",
-                  title: "📅 Book",
+                  title: "Book",
                 },
               },
               {
                 type: "reply",
                 reply: {
                   id: "dental_advice",
-                  title: "🦷 Advice",
+                  title: "Advice",
                 },
               },
               {
                 type: "reply",
                 reply: {
                   id: "clinic_info",
-                  title: "ℹ️ Info",
+                  title: "Info",
                 },
               },
             ],
           },
         },
       }),
-    }
+    },
   );
 
   return response.json();
