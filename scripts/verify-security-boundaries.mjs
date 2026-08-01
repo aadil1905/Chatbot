@@ -11,6 +11,8 @@ const checks = [
   ["app/api/missed-calls/route.ts", "MISSED_CALL_WEBHOOK_SECRET"],
   ["app/api/webhook/route.ts", "x-hub-signature-256"],
   ["app/dashboard/billing/[id]/page.tsx", "patient: { clinicId: user.clinicId }"],
+  ["app/dashboard/billing/page.tsx", "patient: { clinicId: user.clinicId }"],
+  ["app/dashboard/billing/new/page.tsx", "clinicId: user.clinicId"],
   ["app/dashboard/patients/[id]/page.tsx", "clinicId: user.clinicId"],
   ["app/dashboard/patients/[id]/edit/page.tsx", "clinicId: user.clinicId"],
   ["proxy.ts", "const publicApi = [\"/api/webhook\", \"/api/health\", \"/api/cron/follow-ups\", \"/api/public-intake\"]"],

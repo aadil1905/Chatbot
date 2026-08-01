@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import InvoiceForm from "@/components/billing/InvoiceForm";
+import { requireUser } from "@/lib/auth";
 
 const appointmentSelect = {
   id: true,
@@ -12,8 +13,10 @@ const appointmentSelect = {
 };
 
 export default async function NewInvoicePage() {
+  const user = await requireUser();
   const [patients, plans] = await Promise.all([
     prisma.patient.findMany({
+      where: { clinicId: user.clinicId },
       select: {
         id: true,
         fullName: true,
@@ -28,7 +31,7 @@ export default async function NewInvoicePage() {
     }),
     prisma.treatmentPlan.findMany({
       select: { id: true, title: true, patientId: true, visitDate: true },
-      where: { status: { not: "Cancelled" } },
+      where: { status: { not: "Cancelled" }, patient: { clinicId: user.clinicId } },
       orderBy: { updatedAt: "desc" },
     }),
   ]);

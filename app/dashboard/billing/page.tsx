@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import DeleteSubmitButton from "@/components/dashboard/DeleteSubmitButton";
 import { deleteInvoiceAction } from "@/app/dashboard/delete-actions";
+import { requireUser } from "@/lib/auth";
 
 function label(status: string) {
   return status === "Paid"
@@ -16,7 +17,9 @@ function label(status: string) {
 }
 
 export default async function BillingPage() {
+  const user = await requireUser();
   const invoices = await prisma.invoice.findMany({
+    where: { patient: { clinicId: user.clinicId } },
     include: { patient: true, payments: true },
     orderBy: { createdAt: "desc" },
     take: 50,
