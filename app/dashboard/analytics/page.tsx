@@ -41,25 +41,26 @@ export default async function AnalyticsPage() {
     treatmentPlans,
   ] = await Promise.all([
     prisma.payment.aggregate({
-      where: { paidAt: { gte: yesterday, lt: today } },
+      where: { invoice: { patient: { clinicId: user.clinicId } }, paidAt: { gte: yesterday, lt: today } },
       _sum: { amount: true },
     }),
     prisma.payment.aggregate({
-      where: { paidAt: { gte: monthStart } },
+      where: { invoice: { patient: { clinicId: user.clinicId } }, paidAt: { gte: monthStart } },
       _sum: { amount: true },
     }),
     prisma.invoice.aggregate({
-      where: { status: { not: "Paid" } },
+      where: { patient: { clinicId: user.clinicId }, status: { not: "Paid" } },
       _sum: { totalAmount: true },
       _count: { id: true },
     }),
     prisma.appointment.count({
       where: {
+        clinicId: user.clinicId,
         appointmentDate: { lt: today },
         status: { in: ["Pending", "Cancelled"] },
       },
     }),
-    prisma.patient.count({ where: { createdAt: { gte: monthStart } } }),
+    prisma.patient.count({ where: { clinicId: user.clinicId, createdAt: { gte: monthStart } } }),
     prisma.lead.findMany({
       where: { clinicId: user.clinicId },
       select: { stage: true },
@@ -70,7 +71,7 @@ export default async function AnalyticsPage() {
     }),
     prisma.treatmentPlan.groupBy({
       by: ["title"],
-      where: { createdAt: { gte: monthStart } },
+      where: { patient: { clinicId: user.clinicId }, createdAt: { gte: monthStart } },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
       take: 5,

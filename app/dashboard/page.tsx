@@ -82,6 +82,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     safeDashboardQuery("today appointments", [], () => prisma.appointment.findMany({
       where: {
+        clinicId: user.clinicId,
         appointmentDate: {
           gte: today,
           lt: tomorrow,
@@ -96,10 +97,11 @@ export default async function DashboardPage() {
       take: 7,
     })),
 
-    safeDashboardQuery("total patients", 0, () => prisma.patient.count()),
+    safeDashboardQuery("total patients", 0, () => prisma.patient.count({ where: { clinicId: user.clinicId } })),
 
     safeDashboardQuery("new patients", 0, () => prisma.patient.count({
       where: {
+        clinicId: user.clinicId,
         createdAt: {
           gte: recentStart,
         },
@@ -108,6 +110,7 @@ export default async function DashboardPage() {
 
     safeDashboardQuery("treatment plans", 0, () => prisma.treatmentPlan.count({
       where: {
+        patient: { clinicId: user.clinicId },
         createdAt: {
           gte: monthStart,
         },
@@ -116,6 +119,7 @@ export default async function DashboardPage() {
 
     safeDashboardQuery("monthly invoices", [], () => prisma.invoice.findMany({
       where: {
+        patient: { clinicId: user.clinicId },
         issueDate: {
           gte: monthStart,
         },
@@ -128,6 +132,7 @@ export default async function DashboardPage() {
 
     safeDashboardQuery("monthly payments", { _sum: { amount: 0 } }, () => prisma.payment.aggregate({
       where: {
+        invoice: { patient: { clinicId: user.clinicId } },
         paidAt: {
           gte: monthStart,
         },
@@ -139,6 +144,7 @@ export default async function DashboardPage() {
 
     safeDashboardQuery("pending appointments", [], () => prisma.appointment.findMany({
       where: {
+        clinicId: user.clinicId,
         status: "Pending",
       },
       orderBy: [
