@@ -11,10 +11,9 @@ function followUpMessage(name: string) {
 
 export async function POST(req: NextRequest) {
   const configuredSecret = process.env.MISSED_CALL_WEBHOOK_SECRET;
-  if (configuredSecret) {
-    const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || req.nextUrl.searchParams.get("token");
-    if (token !== configuredSecret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!configuredSecret) return NextResponse.json({ error: "Missed-call webhook is not configured." }, { status: 503 });
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || req.nextUrl.searchParams.get("token");
+  if (token !== configuredSecret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid body" }, { status: 400 });

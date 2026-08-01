@@ -20,8 +20,9 @@ export const defaultHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
   isClosed: dayOfWeek === 0,
 }));
 
-export async function getClinicConfiguration() {
+export async function getClinicConfiguration(clinicId?: number) {
   return prisma.clinic.findFirst({
+    where: clinicId ? { id: clinicId } : undefined,
     include: {
       services: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
       hours: { orderBy: { dayOfWeek: "asc" } },

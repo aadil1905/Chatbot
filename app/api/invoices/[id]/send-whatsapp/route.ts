@@ -2,23 +2,26 @@ import { NextResponse } from "next/server";
 import { formatClinicInformation, getClinicConfiguration } from "@/lib/clinic-config";
 import { prisma } from "@/lib/prisma";
 import { sendTextMessage } from "@/lib/whatsapp";
+import { requireApiUser } from "@/lib/tenant";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const { user, response } = await requireApiUser();
+    if (!user) return response;
     const { id } = await context.params;
     const invoiceId = Number(id);
     if (!Number.isInteger(invoiceId)) return NextResponse.json({ error: "Invalid invoice." }, { status: 400 });
 
     const [invoice, clinic] = await Promise.all([
       prisma.invoice.findFirst({
-        where: { id: invoiceId },
+        where: { id: invoiceId, patient: { clinicId: user.clinicId } },
         include: {
           patient: true,
           treatmentPlan: { include: { selectedTeeth: { orderBy: { toothNumber: "asc" } } } },
           payments: true,
         },
       }),
-      getClinicConfiguration(),
+      getClinicConfiguration(user.clinicId),
     ]);
 
     if (!invoice) return NextResponse.json({ error: "Invoice not found." }, { status: 404 });
