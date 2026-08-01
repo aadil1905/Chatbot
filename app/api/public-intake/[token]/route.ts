@@ -19,6 +19,8 @@ const formSchema = z.object({
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
   try {
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > 1_100_000) return NextResponse.json({ error: "The submitted form is too large." }, { status: 413 });
     const input = formSchema.parse(await request.json());
     const intake = await prisma.patientIntakeRequest.findUnique({ where: { token } });
     if (!intake) return NextResponse.json({ error: "This form link is invalid." }, { status: 404 });
@@ -28,9 +30,13 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     }
 
     const completedAt = new Date();
-    await prisma.$transaction([
-      prisma.patientIntakeRequest.update({
-        where: { id: intake.id },
+    const submitted = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.patientIntakeRequest.updateMany({
+        where: {
+          id: intake.id,
+          expiresAt: { gt: completedAt },
+          status: { notIn: ["COMPLETED", "REVIEWED"] },
+        },
         data: {
         status: "COMPLETED",
         medicalHistory: JSON.stringify(input.medicalHistory),
@@ -46,8 +52,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
         guardianSignature: input.guardianSignature || null,
         completedAt,
         },
-      }),
-      prisma.clinicalRecord.create({
+      });
+      if (!claimed.count) return false;
+
+      await tx.clinicalRecord.create({
         data: {
           patientId: intake.patientId,
           visitDate: completedAt,
@@ -66,8 +74,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
           guardianSignature: input.guardianSignature || null,
           consentSignedAt: completedAt,
         },
-      }),
-    ]);
+      });
+      return true;
+    });
+    if (!submitted) return NextResponse.json({ success: true, alreadyCompleted: true });
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {

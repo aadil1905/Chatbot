@@ -13,6 +13,7 @@ const checks = [
   ["app/dashboard/billing/[id]/page.tsx", "patient: { clinicId: user.clinicId }"],
   ["app/dashboard/billing/page.tsx", "patient: { clinicId: user.clinicId }"],
   ["app/dashboard/billing/new/page.tsx", "clinicId: user.clinicId"],
+  ["app/api/public-intake/[token]/route.ts", "status: { notIn: [\"COMPLETED\", \"REVIEWED\"] }"],
   ["app/dashboard/patients/[id]/page.tsx", "clinicId: user.clinicId"],
   ["app/dashboard/patients/[id]/edit/page.tsx", "clinicId: user.clinicId"],
   ["proxy.ts", "const publicApi = [\"/api/webhook\", \"/api/health\", \"/api/cron/follow-ups\", \"/api/public-intake\"]"],
