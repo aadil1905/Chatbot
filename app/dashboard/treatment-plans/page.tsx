@@ -12,7 +12,15 @@ export default async function TreatmentPlansPage() {
   const user = await requireUser();
   const plans = await prisma.treatmentPlan.findMany({
     where: { patient: { clinicId: user.clinicId } },
-    include: { patient: true },
+    select: {
+      id: true,
+      patientId: true,
+      title: true,
+      status: true,
+      estimatedCost: true,
+      updatedAt: true,
+      patient: { select: { fullName: true } },
+    },
     orderBy: { updatedAt: "desc" },
     take: 30,
   });

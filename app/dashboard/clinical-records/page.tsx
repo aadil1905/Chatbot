@@ -12,7 +12,14 @@ export default async function ClinicalRecordsPage() {
   const user = await requireUser();
   const records = await prisma.clinicalRecord.findMany({
     where: { patient: { clinicId: user.clinicId } },
-    include: { patient: true },
+    select: {
+      id: true,
+      patientId: true,
+      chiefComplaint: true,
+      diagnosis: true,
+      visitDate: true,
+      patient: { select: { fullName: true } },
+    },
     orderBy: { visitDate: "desc" },
     take: 30,
   });
