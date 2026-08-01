@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import ClinicalRecordForm from "@/components/clinical/ClinicalRecordForm";
+import PageIntro from "@/components/dashboard/PageIntro";
 
 export default async function EditClinicalRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -26,11 +27,11 @@ export default async function EditClinicalRecordPage({ params }: { params: Promi
   });
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">Clinical records</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Edit case paper</h1>
-        <p className="mt-1 text-muted-foreground">Update this existing record without creating a duplicate.</p>
-      </div>
+      <PageIntro
+        eyebrow="Clinical records"
+        title="Edit case paper"
+        description="Update this existing record without creating a duplicate."
+      />
       <ClinicalRecordForm patients={patients} selectedPatientId={record.patientId} editingRecord={record} />
     </div>
   );

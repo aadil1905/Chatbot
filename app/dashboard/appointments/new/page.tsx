@@ -8,6 +8,7 @@ export default function NewAppointmentPage() {
         eyebrow="Appointments"
         title="New Appointment"
         description="Schedule a clinic visit and start patient intake when needed."
+        descriptionMarginClassName="mt-2"
       />
 
       <AppointmentForm />
