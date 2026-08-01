@@ -7,7 +7,7 @@ import { Check, CircleCheckBig, LoaderCircle, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-import EditAppointmentDialog from "./EditAppointmentDialog";
+import EditAppointmentButton from "./EditAppointmentButton";
 import DeleteAppointmentDialog from "./DeleteAppointmentDialog";
 import SendReminderButton from "./SendReminderButton";
 
@@ -75,7 +75,7 @@ export default function AppointmentActions({
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-      <EditAppointmentDialog appointment={appointment} />
+      <EditAppointmentButton appointmentId={appointment.id} />
       <SendReminderButton appointmentId={appointment.id} sentAt={reminderSentAt ?? null} />
 
       <Button
