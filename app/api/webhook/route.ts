@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 import { clearBooking, continueBooking, hasBooking, resumeBooking, startBooking, startReschedule } from "@/lib/booking";
 import { clearConversation } from "@/lib/ai";
 import { clinicBrand } from "@/lib/brand";
@@ -65,9 +66,22 @@ function menuAction(value: string) {
   return "";
 }
 
+function hasValidSignature(rawBody: string, signature: string | null) {
+  const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret || !signature?.startsWith("sha256=")) return false;
+  const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
+  const received = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  return received.length === expectedBuffer.length && timingSafeEqual(received, expectedBuffer);
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    if (!hasValidSignature(rawBody, req.headers.get("x-hub-signature-256"))) {
+      return NextResponse.json({ error: "Unauthorized webhook request." }, { status: 401 });
+    }
+    const body = JSON.parse(rawBody);
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     if (!message) return NextResponse.json({ received: true });
 
@@ -176,6 +190,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Unable to process webhook." }, { status: 500 });
   }
 }

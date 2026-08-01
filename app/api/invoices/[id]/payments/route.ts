@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { paymentSchema } from "@/lib/validations";
 import { ZodError } from "zod";
+import { requireApiUser } from "@/lib/tenant";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const { user, response } = await requireApiUser();
+    if (!user) return response;
     const { id } = await context.params;
     const invoiceId = Number(id);
     if (!Number.isInteger(invoiceId)) return NextResponse.json({ error: "Invalid invoice." }, { status: 400 });
     const data = paymentSchema.parse(await request.json());
-    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, include: { payments: true } });
+    const invoice = await prisma.invoice.findFirst({ where: { id: invoiceId, patient: { clinicId: user.clinicId } }, include: { payments: true } });
     if (!invoice) return NextResponse.json({ error: "Invoice not found." }, { status: 404 });
     const paidSoFar = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
     if (paidSoFar + data.amount > invoice.totalAmount) return NextResponse.json({ error: "Payment exceeds the outstanding amount." }, { status: 400 });

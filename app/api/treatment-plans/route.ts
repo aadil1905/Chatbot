@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { treatmentPlanSchema } from "@/lib/validations";
 import { ZodError } from "zod";
+import { requireApiUser } from "@/lib/tenant";
 
 function localDate(value: string | Date) {
   if (value instanceof Date) return value;
@@ -16,10 +17,11 @@ function localDayRange(value: string | Date) {
   };
 }
 
-async function findCompletedAppointment(patientId: number, value: string | Date) {
+async function findCompletedAppointment(clinicId: number, patientId: number, value: string | Date) {
   const range = localDayRange(value);
   return prisma.appointment.findFirst({
     where: {
+      clinicId,
       patientId,
       status: "Completed",
       appointmentDate: { gte: range.start, lte: range.end },
@@ -29,6 +31,8 @@ async function findCompletedAppointment(patientId: number, value: string | Date)
 
 export async function POST(request: Request) {
   try {
+    const { user, response } = await requireApiUser();
+    if (!user) return response;
     const data = treatmentPlanSchema.parse(await request.json());
     if (!data.visitDate) {
       return NextResponse.json(
@@ -36,7 +40,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const appointment = await findCompletedAppointment(data.patientId, data.visitDate);
+    const patient = await prisma.patient.findFirst({ where: { id: data.patientId, clinicId: user.clinicId }, select: { id: true } });
+    if (!patient) return NextResponse.json({ error: "Patient not found." }, { status: 404 });
+    if (data.serviceId) {
+      const service = await prisma.clinicService.findFirst({ where: { id: data.serviceId, clinicId: user.clinicId }, select: { id: true } });
+      if (!service) return NextResponse.json({ error: "Service not found." }, { status: 404 });
+    }
+    const appointment = await findCompletedAppointment(user.clinicId, patient.id, data.visitDate);
     if (!appointment) {
       return NextResponse.json(
         { error: "Select one of this patient's completed appointment dates." },
@@ -50,7 +60,7 @@ export async function POST(request: Request) {
     const toothNumbers = Array.from(new Set([...(data.toothNumbers || []), data.toothNumber || ""].map((tooth) => tooth.trim()).filter(Boolean)));
     const plan = await prisma.treatmentPlan.create({
       data: {
-        patientId: data.patientId,
+        patientId: patient.id,
         visitDate: localDate(data.visitDate),
         title: data.title,
         status: data.status,

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendTextMessage } from "@/lib/whatsapp";
+import { requireApiUser } from "@/lib/tenant";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const { user, response } = await requireApiUser();
+    if (!user) return response;
     const { id } = await context.params;
-    const appointment = await prisma.appointment.findUnique({ where: { id: Number(id) } });
+    const appointment = await prisma.appointment.findFirst({ where: { id: Number(id), clinicId: user.clinicId } });
     if (!appointment) return NextResponse.json({ error: "Appointment not found." }, { status: 404 });
     if (appointment.status === "Cancelled") return NextResponse.json({ error: "A reminder cannot be sent for a cancelled appointment." }, { status: 400 });
     const date = appointment.appointmentDate.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });

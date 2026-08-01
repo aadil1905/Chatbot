@@ -21,8 +21,8 @@ export default async function OperationsPage() {
   const [items, labCases, patients, treatmentPlans] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { clinicId: user.clinicId, active: true }, orderBy: [{ quantity: "asc" }, { name: "asc" }] }),
     prisma.labCase.findMany({ where: { clinicId: user.clinicId }, include: { patient: true }, orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }], take: 40 }),
-    prisma.patient.findMany({ select: { id: true, fullName: true, phone: true }, orderBy: { fullName: "asc" }, take: 75 }),
-    prisma.treatmentPlan.findMany({ select: { id: true, patientId: true, title: true }, orderBy: { updatedAt: "desc" }, take: 75 }),
+    prisma.patient.findMany({ where: { clinicId: user.clinicId }, select: { id: true, fullName: true, phone: true }, orderBy: { fullName: "asc" }, take: 75 }),
+    prisma.treatmentPlan.findMany({ where: { patient: { clinicId: user.clinicId } }, select: { id: true, patientId: true, title: true }, orderBy: { updatedAt: "desc" }, take: 75 }),
   ]);
 
   const lowStock = items.filter((item) => item.quantity <= item.reorderLevel);

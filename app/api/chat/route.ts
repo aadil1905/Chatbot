@@ -1,4 +1,8 @@
 import OpenAI from "openai";
+import { z } from "zod";
+import { requireApiUser } from "@/lib/tenant";
+
+const chatRequestSchema = z.object({ message: z.string().trim().min(1).max(2_000) });
 
 function getClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -8,7 +12,9 @@ function getClient() {
 
 export async function POST(req: Request) {
   try {
-    const { message } = await req.json();
+    const { user, response } = await requireApiUser();
+    if (!user) return response;
+    const { message } = chatRequestSchema.parse(await req.json());
 
     const completion = await getClient().chat.completions.create({
       model: "gpt-4.1-mini",
@@ -26,7 +32,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error(error);
     return Response.json(
-      { error: "Something went wrong" },
+      { error: error instanceof z.ZodError ? "Invalid message." : "Something went wrong" },
       { status: 500 }
     );
   }

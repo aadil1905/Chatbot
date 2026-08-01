@@ -46,11 +46,11 @@ export async function deleteLeadAction(formData: FormData) {
 }
 
 export async function deletePatientAction(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const id = getId(formData);
   if (!id) return;
 
-  await prisma.patient.deleteMany({ where: { id } });
+  await prisma.patient.deleteMany({ where: { id, clinicId: user.clinicId } });
   revalidatePath("/dashboard/patients");
 }
 
@@ -73,28 +73,28 @@ export async function deleteFollowUpAction(formData: FormData) {
 }
 
 export async function deleteClinicalRecordAction(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const id = getId(formData);
   if (!id) return;
 
-  await prisma.clinicalRecord.deleteMany({ where: { id } });
+  await prisma.clinicalRecord.deleteMany({ where: { id, patient: { clinicId: user.clinicId } } });
   revalidatePath("/dashboard/clinical-records");
 }
 
 export async function deleteTreatmentPlanAction(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const id = getId(formData);
   if (!id) return;
 
-  await prisma.treatmentPlan.deleteMany({ where: { id } });
+  await prisma.treatmentPlan.deleteMany({ where: { id, patient: { clinicId: user.clinicId } } });
   revalidatePath("/dashboard/treatment-plans");
 }
 
 export async function deleteInvoiceAction(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const id = getId(formData);
   if (!id) return;
 
-  await prisma.invoice.deleteMany({ where: { id } });
+  await prisma.invoice.deleteMany({ where: { id, patient: { clinicId: user.clinicId } } });
   revalidatePath("/dashboard/billing");
 }

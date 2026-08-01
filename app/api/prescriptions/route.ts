@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { prescriptionSchema } from "@/lib/validations";
+import { requireApiUser } from "@/lib/tenant";
 
 function localDate(value: string | Date) {
   if (value instanceof Date) return value;
@@ -16,10 +17,11 @@ function localDayRange(value: string | Date) {
   };
 }
 
-async function findCompletedAppointment(patientId: number, value: string | Date) {
+async function findCompletedAppointment(clinicId: number, patientId: number, value: string | Date) {
   const range = localDayRange(value);
   return prisma.appointment.findFirst({
     where: {
+      clinicId,
       patientId,
       status: "Completed",
       appointmentDate: { gte: range.start, lte: range.end },
@@ -29,8 +31,12 @@ async function findCompletedAppointment(patientId: number, value: string | Date)
 
 export async function POST(request: Request) {
   try {
+    const { user, response } = await requireApiUser();
+    if (!user) return response;
     const data = prescriptionSchema.parse(await request.json());
-    const appointment = await findCompletedAppointment(data.patientId, data.prescribedOn);
+    const patient = await prisma.patient.findFirst({ where: { id: data.patientId, clinicId: user.clinicId }, select: { id: true } });
+    if (!patient) return NextResponse.json({ error: "Patient not found." }, { status: 404 });
+    const appointment = await findCompletedAppointment(user.clinicId, patient.id, data.prescribedOn);
     if (!appointment) {
       return NextResponse.json(
         { error: "Select one of this patient's completed appointment dates." },
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
 
     const prescription = await prisma.prescription.create({
       data: {
-        patientId: data.patientId,
+        patientId: patient.id,
         prescribedOn: localDate(data.prescribedOn),
         diagnosis: data.diagnosis || null,
         instructions: data.instructions || null,
