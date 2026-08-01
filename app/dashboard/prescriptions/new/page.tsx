@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 import PrescriptionForm from "@/components/clinical/PrescriptionForm";
 
 const appointmentSelect = {
@@ -12,8 +13,10 @@ const appointmentSelect = {
 };
 
 export default async function NewPrescriptionPage({ searchParams }: { searchParams: Promise<{ patientId?: string }> }) {
+  const user = await requireUser();
   const { patientId } = await searchParams;
   const patients = await prisma.patient.findMany({
+    where: { clinicId: user.clinicId },
     select: {
       id: true,
       fullName: true,

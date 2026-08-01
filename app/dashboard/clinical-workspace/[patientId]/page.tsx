@@ -59,13 +59,13 @@ export default async function PatientClinicalWorkspace({
   params: Promise<{ patientId: string }>;
   searchParams: Promise<{ visitDate?: string }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const { patientId } = await params;
   const { visitDate } = await searchParams;
   const id = Number(patientId);
 
-  const patient = await prisma.patient.findUnique({
-    where: { id },
+  const patient = await prisma.patient.findFirst({
+    where: { id, clinicId: user.clinicId },
     include: {
       appointments: {
         orderBy: { appointmentDate: "desc" },

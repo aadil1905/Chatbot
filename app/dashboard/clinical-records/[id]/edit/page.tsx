@@ -2,13 +2,16 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 import ClinicalRecordForm from "@/components/clinical/ClinicalRecordForm";
 
 export default async function EditClinicalRecordPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
   const id = Number((await params).id);
-  const record = await prisma.clinicalRecord.findUnique({ where: { id } });
+  const record = await prisma.clinicalRecord.findFirst({ where: { id, patient: { clinicId: user.clinicId } } });
   if (!record) notFound();
   const patients = await prisma.patient.findMany({
+    where: { clinicId: user.clinicId },
     select: {
       id: true,
       fullName: true,

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 import TreatmentPlanForm from "@/components/clinical/TreatmentPlanForm";
 
 const appointmentSelect = {
@@ -12,8 +13,10 @@ const appointmentSelect = {
 };
 
 export default async function NewTreatmentPlanPage() {
+  const user = await requireUser();
   const [patients, services] = await Promise.all([
     prisma.patient.findMany({
+      where: { clinicId: user.clinicId },
       select: {
         id: true,
         fullName: true,
@@ -27,6 +30,7 @@ export default async function NewTreatmentPlanPage() {
       orderBy: { fullName: "asc" },
     }),
     prisma.clinicService.findMany({
+      where: { clinicId: user.clinicId },
       select: { id: true, name: true, price: true, active: true },
       orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
     }),
