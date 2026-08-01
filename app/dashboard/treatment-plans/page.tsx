@@ -6,9 +6,12 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import DeleteSubmitButton from "@/components/dashboard/DeleteSubmitButton";
 import { deleteTreatmentPlanAction } from "@/app/dashboard/delete-actions";
+import { requireUser } from "@/lib/auth";
 
 export default async function TreatmentPlansPage() {
+  const user = await requireUser();
   const plans = await prisma.treatmentPlan.findMany({
+    where: { patient: { clinicId: user.clinicId } },
     include: { patient: true },
     orderBy: { updatedAt: "desc" },
     take: 30,
