@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Check, CircleCheckBig, LoaderCircle, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -22,11 +23,11 @@ export default function AppointmentActions({
   reminderSentAt,
 }: Props) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<Appointment["status"] | null>(null);
 
   async function updateStatus(status: Appointment["status"]) {
     try {
-      setLoading(true);
+      setPendingStatus(status);
 
       const response = await fetch(
         `/api/appointments/${appointment.id}`,
@@ -43,43 +44,62 @@ export default function AppointmentActions({
         throw new Error();
       }
 
-      toast.success(`Appointment marked as ${status}.`);
+      toast.success(
+        status === "Completed"
+          ? "Appointment completed. Patient saved to Patients list."
+          : `Appointment marked as ${status}.`
+      );
       router.refresh();
     } catch (error) {
       console.error(error);
       toast.error("Failed to update appointment.");
     } finally {
-      setLoading(false);
+      setPendingStatus(null);
     }
   }
 
+  const statusButtonContent = (
+    status: Appointment["status"],
+    label: string,
+    icon: React.ReactNode,
+  ) => pendingStatus === status ? (
+    <>
+    
+      <LoaderCircle className="size-4 animate-spin" /> Updating...
+    </>
+  ) : (
+    <>
+      {icon} {label}
+    </>
+  );
+
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <EditAppointmentDialog appointment={appointment} />
       <SendReminderButton appointmentId={appointment.id} sentAt={reminderSentAt ?? null} />
 
       <Button
         onClick={() => updateStatus("Confirmed")}
-        disabled={loading}
-        className="bg-green-600 hover:bg-green-700"
+        disabled={pendingStatus !== null}
+        className="h-11 rounded-xl bg-emerald-600 px-5 font-bold hover:bg-emerald-700"
       >
-        Confirm
+        {statusButtonContent("Confirmed", "Confirm", <Check className="size-4" />)}
       </Button>
 
       <Button
         onClick={() => updateStatus("Completed")}
-        disabled={loading}
-        className="bg-blue-600 hover:bg-blue-700"
+        disabled={pendingStatus !== null}
+        className="h-11 rounded-xl bg-blue-600 px-5 font-bold hover:bg-blue-700"
       >
-        Complete
+        {statusButtonContent("Completed", "Complete", <CircleCheckBig className="size-4" />)}
       </Button>
 
       <Button
         onClick={() => updateStatus("Cancelled")}
-        disabled={loading}
-        className="bg-yellow-600 hover:bg-yellow-700 text-black"
+        disabled={pendingStatus !== null}
+        className="h-11 rounded-xl bg-amber-500 px-5 font-bold text-slate-950 hover:bg-amber-600"
       >
-        Cancel
+        {statusButtonContent("Cancelled", "Cancel", <X className="size-4" />)}
       </Button>
 
       <DeleteAppointmentDialog

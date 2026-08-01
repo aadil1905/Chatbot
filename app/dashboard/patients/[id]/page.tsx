@@ -1,94 +1,669 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
+import {
+  ArrowLeft,
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  IndianRupee,
+  Pencil,
+  Pill,
+  Stethoscope,
+  UserRound,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import PatientActions from "@/components/patients/PatientActions";
 import StatusBadge from "@/components/appointments/StatusBadge";
+import DentalChartSummary from "@/components/clinical/DentalChartSummary";
+import type { AppointmentStatus } from "@/types/appointment";
 
-export default async function PatientPage({ params }: { params: Promise<{ id: string }> }) {
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+function formatDateTime(date: Date) {
+  return date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function dateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return `${year}-${month}-${day}`;
+}
+
+function money(amount: number | null | undefined) {
+  return `₹${(amount ?? 0).toLocaleString("en-IN")}`;
+}
+
+function parseMedicalHistory(value: string | null | undefined) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function sameVisit(date: Date, selectedVisit: string) {
+  return dateKey(date) === selectedVisit;
+}
+
+function localDayRange(dayKey: string) {
+  return {
+    start: new Date(`${dayKey}T00:00:00.000+05:30`),
+    end: new Date(`${dayKey}T23:59:59.999+05:30`),
+  };
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-dashed bg-muted/20 p-5 text-sm text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
+function ConsentImageFrame({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div className="flex min-h-24 w-full items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white px-3 py-2 sm:min-h-28">
+      <Image
+        src={src}
+        alt={alt}
+        width={600}
+        height={180}
+        unoptimized
+        className="ml-auto block h-auto max-h-24 w-[72%] max-w-full object-contain object-right sm:max-h-28"
+      />
+    </div>
+  );
+}
+
+export default async function PatientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ visit?: string }>;
+}) {
   const { id } = await params;
+  const { visit } = await searchParams;
+
   const patient = await prisma.patient.findUnique({
     where: { id: Number(id) },
     include: {
-      appointments: { orderBy: [{ appointmentDate: "desc" }, { appointmentTime: "desc" }] },
-      clinicalRecords: { orderBy: { visitDate: "desc" }, take: 8 },
-      treatmentPlans: { include: { service: true, selectedTeeth: { orderBy: { toothNumber: "asc" } } }, orderBy: { updatedAt: "desc" }, take: 8 },
-      invoices: { include: { payments: true }, orderBy: { createdAt: "desc" }, take: 8 },
-      prescriptions: { orderBy: { prescribedOn: "desc" }, take: 8 },
+      appointments: {
+        orderBy: [{ appointmentDate: "desc" }, { appointmentTime: "desc" }],
+      },
+      clinicalRecords: {
+        orderBy: { visitDate: "desc" },
+      },
+      treatmentPlans: {
+        include: { service: true, selectedTeeth: true },
+        orderBy: { updatedAt: "desc" },
+      },
+      invoices: {
+        include: { payments: true, treatmentPlan: true },
+        orderBy: { createdAt: "desc" },
+      },
+      prescriptions: {
+        orderBy: { prescribedOn: "desc" },
+      },
     },
   });
 
   if (!patient) notFound();
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Link href="/dashboard/patients" className="text-sm text-primary hover:underline">Back to patients</Link>
-          <h1 className="mt-2 text-3xl font-bold">{patient.fullName}</h1>
-          <p className="mt-1 text-muted-foreground">Patient profile, complete treatment history, prescriptions, and billing.</p>
-        </div>
-        <PatientActions patientId={patient.id} />
-      </div>
+  const visitMap = new Map<string, Date>();
+  for (const appointment of patient.appointments.filter((item) => item.status === "Completed")) {
+    visitMap.set(dateKey(appointment.appointmentDate), appointment.appointmentDate);
+  }
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Contact details</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <p><span className="text-muted-foreground">Phone:</span> {patient.phone}</p>
-            <p><span className="text-muted-foreground">Email:</span> {patient.email || "Not provided"}</p>
-            <p><span className="text-muted-foreground">Date of birth:</span> {patient.dateOfBirth?.toLocaleDateString() || "Not provided"}</p>
-            <p><span className="text-muted-foreground">Gender:</span> {patient.gender || "Not specified"}</p>
-            <p><span className="text-muted-foreground">Address:</span> {patient.address || "Not provided"}</p>
+  const visits = Array.from(visitMap.entries())
+    .map(([key, date]) => ({ key, date }))
+    .sort((left, right) => right.date.getTime() - left.date.getTime());
+  const selectedVisit = visit && visitMap.has(visit) ? visit : visits[0]?.key;
+
+  const visitAppointments = selectedVisit
+    ? patient.appointments.filter((appointment) =>
+        sameVisit(appointment.appointmentDate, selectedVisit),
+      )
+    : patient.appointments;
+  const visitRecords = selectedVisit
+    ? patient.clinicalRecords.filter((record) => sameVisit(record.visitDate, selectedVisit))
+    : patient.clinicalRecords;
+  const visitConsentRecord =
+    visitRecords.find((record) => record.consentGiven || record.consentSignedAt) ??
+    visitRecords[0];
+  const visitPrescriptions = selectedVisit
+    ? patient.prescriptions.filter((prescription) =>
+        sameVisit(prescription.prescribedOn, selectedVisit),
+      )
+    : patient.prescriptions;
+  const relatedPlans = selectedVisit
+    ? patient.treatmentPlans.filter((plan) => plan.visitDate ? sameVisit(plan.visitDate, selectedVisit) : false)
+    : patient.treatmentPlans;
+  const relatedInvoices = selectedVisit
+    ? patient.invoices.filter((invoice) => sameVisit(invoice.issueDate, selectedVisit))
+    : patient.invoices;
+  const selectedRange = selectedVisit ? localDayRange(selectedVisit) : null;
+  const visitDentalChartEntries = selectedRange
+    ? await prisma.dentalChartEntry.findMany({
+        where: {
+          patientId: patient.id,
+          visitDate: { gte: selectedRange.start, lte: selectedRange.end },
+        },
+        orderBy: { toothNumber: "asc" },
+      })
+    : [];
+
+  const totalBilled = relatedInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
+  const totalPaid = relatedInvoices.reduce(
+    (sum, invoice) => sum + invoice.payments.reduce((paid, payment) => paid + payment.amount, 0),
+    0,
+  );
+  const outstanding = totalBilled - totalPaid;
+
+  return (
+    <div className="mx-auto max-w-[1480px] space-y-6">
+      <section className="overflow-hidden rounded-3xl border bg-gradient-to-br from-white via-white to-primary/[0.06] shadow-sm">
+        <div className="flex flex-col gap-5 px-5 py-5 sm:px-7 sm:py-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="hidden size-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-xl font-bold uppercase text-primary-foreground shadow-sm sm:flex">
+              {patient.fullName.trim().charAt(0)}
+            </div>
+            <div className="min-w-0">
+          <Link
+            href="/dashboard/patients"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition hover:-translate-x-0.5"
+          >
+                <ArrowLeft className="size-4" /> Back to patients
+          </Link>
+              <h1 className="mt-2 truncate text-3xl font-bold tracking-tight sm:text-4xl">
+                {patient.fullName}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>{patient.phone}</span>
+                <span className="hidden text-border sm:inline">•</span>
+                <span>
+                  {visits.length} recorded visit{visits.length === 1 ? "" : "s"}
+                </span>
+                {selectedVisit && (
+                  <>
+                    <span className="hidden text-border sm:inline">•</span>
+                    <span>Viewing {formatDate(new Date(`${selectedVisit}T12:00:00+05:30`))}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <Card className="border-slate-200/80 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CalendarDays className="size-5 text-primary" /> Visit dates
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Select a completed visit to update every clinical and billing section below.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {visits.length === 0 ? (
+            <EmptyState>No completed appointment visits are saved yet.</EmptyState>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {visits.map((item) => (
+                <Link
+                  key={item.key}
+                  href={`/dashboard/patients/${patient.id}?visit=${item.key}`}
+                  aria-current={selectedVisit === item.key ? "page" : undefined}
+                  className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-md ${
+                    selectedVisit === item.key
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "bg-white hover:border-primary/40 hover:text-primary"
+                  }`}
+                >
+                  {formatDate(item.date)}
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-6">
+        <div className="grid items-stretch gap-6 lg:grid-cols-2">
+        <Card className="border-slate-200/80 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <UserRound className="size-5 text-primary" /> Patient details
+            </CardTitle>
+            <Link href={`/dashboard/patients/${patient.id}/edit`} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5">
+              <Pencil className="size-3.5" /> Edit patient
+            </Link>
+          </CardHeader>
+          <CardContent className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            <p>
+              <span className="block text-muted-foreground">Phone</span>
+              <span className="font-semibold">{patient.phone}</span>
+            </p>
+            <p>
+              <span className="block text-muted-foreground">Email</span>
+              <span className="font-semibold">{patient.email || "Not provided"}</span>
+            </p>
+            <p>
+              <span className="block text-muted-foreground">Date of birth</span>
+              <span className="font-semibold">
+                {patient.dateOfBirth ? formatDate(patient.dateOfBirth) : "Not provided"}
+              </span>
+            </p>
+            <p>
+              <span className="block text-muted-foreground">Gender</span>
+              <span className="font-semibold">{patient.gender || "Not specified"}</span>
+            </p>
+            <p>
+              <span className="block text-muted-foreground">Address</span>
+              <span className="font-semibold">{patient.address || "Not provided"}</span>
+            </p>
+            <p className="sm:col-span-2 lg:col-span-3">
+              <span className="block text-muted-foreground">Medical notes</span>
+              <span className="whitespace-pre-wrap font-semibold">
+                {patient.medicalNotes || "No medical notes recorded."}
+              </span>
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Medical notes</CardTitle></CardHeader>
-          <CardContent className="whitespace-pre-wrap text-sm text-muted-foreground">{patient.medicalNotes || "No medical notes recorded."}</CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Clinical records ({patient.clinicalRecords.length})</CardTitle></CardHeader>
-          <CardContent>{patient.clinicalRecords.length === 0 ? <p className="text-sm text-muted-foreground">No clinical records yet.</p> : <div className="space-y-3">{patient.clinicalRecords.map((record) => <div key={record.id} className="rounded-lg border p-3 text-sm"><p className="font-medium">{record.visitDate.toLocaleDateString()} - {record.chiefComplaint}</p><p className="mt-1 text-muted-foreground">{record.diagnosis || "No diagnosis recorded"}</p></div>)}</div>}</CardContent>
+        <Card className="border-slate-200/80 bg-slate-50/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Visit overview</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              A quick snapshot of this patient&apos;s recorded care.
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border bg-white p-3"><p className="text-xs text-muted-foreground">Visits</p><p className="mt-1 text-xl font-bold">{visits.length}</p></div>
+            <div className="rounded-xl border bg-white p-3"><p className="text-xs text-muted-foreground">Clinical records</p><p className="mt-1 text-xl font-bold">{patient.clinicalRecords.length}</p></div>
+            <div className="rounded-xl border bg-white p-3"><p className="text-xs text-muted-foreground">Prescriptions</p><p className="mt-1 text-xl font-bold">{patient.prescriptions.length}</p></div>
+          </CardContent>
         </Card>
+        </div>
 
-        <Card>
-          <CardHeader><CardTitle>Prescriptions ({patient.prescriptions.length})</CardTitle></CardHeader>
-          <CardContent>{patient.prescriptions.length === 0 ? <p className="text-sm text-muted-foreground">No prescriptions yet.</p> : <div className="space-y-3">{patient.prescriptions.map((prescription) => <div key={prescription.id} className="rounded-lg border p-3 text-sm"><p className="font-medium">{prescription.prescribedOn.toLocaleDateString()}{prescription.diagnosis ? ` - ${prescription.diagnosis}` : ""}</p><p className="mt-1 line-clamp-2 whitespace-pre-line text-muted-foreground">{prescription.medicines}</p></div>)}</div>}</CardContent>
-        </Card>
+        <Card className="border-slate-200/80 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Stethoscope className="size-5 text-primary" /> Clinical workspace
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <DentalChartSummary entries={visitDentalChartEntries} />
 
-        <Card>
-          <CardHeader><CardTitle>Treatment plans ({patient.treatmentPlans.length})</CardTitle></CardHeader>
-          <CardContent>
-            {patient.treatmentPlans.length === 0 ? <p className="text-sm text-muted-foreground">No treatment plans yet.</p> : (
+            {visitAppointments.length > 0 && (
               <div className="space-y-3">
-                {patient.treatmentPlans.map((plan) => {
-                  const teeth = plan.selectedTeeth.length ? plan.selectedTeeth.map((tooth) => tooth.toothNumber).join(", ") : plan.toothNumber;
-                  return (
-                    <div key={plan.id} className="rounded-lg border p-3 text-sm">
-                      <p className="font-medium">{plan.title}{teeth ? ` - Teeth ${teeth}` : ""}</p>
-                      <p className="mt-1 text-muted-foreground">{plan.service?.name || plan.status}{plan.unitPrice !== null ? ` - Rs. ${plan.unitPrice.toLocaleString("en-IN")}` : ""}</p>
+                {visitAppointments.map((appointment) => (
+                  <div key={appointment.id} className="rounded-2xl border bg-muted/20 p-4 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold">
+                        {formatDate(appointment.appointmentDate)} · {appointment.appointmentTime}
+                      </p>
+                      <StatusBadge status={appointment.status as AppointmentStatus} />
                     </div>
-                  );
-                })}
+                    <p className="mt-2 text-muted-foreground">
+                      Reason for visit: <span className="font-medium text-foreground">{appointment.treatment}</span>
+                    </p>
+                    {appointment.notes && <p className="mt-2 whitespace-pre-wrap">{appointment.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {visitConsentRecord && (
+              <div
+                className={`flex flex-col gap-3 rounded-2xl border p-4 text-sm sm:flex-row sm:items-center sm:justify-between ${
+                  visitConsentRecord.consentGiven
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}
+              >
+                <div>
+                  <p className="font-bold">Visit consent</p>
+                  <p className="mt-1">
+                    {visitConsentRecord.consentGiven
+                      ? "Patient consent is recorded for this visit."
+                      : "Consent has not been recorded for this visit."}
+                  </p>
+                  {visitConsentRecord.consentNotes && (
+                    <p className="mt-1 opacity-80">{visitConsentRecord.consentNotes}</p>
+                  )}
+                </div>
+                {visitConsentRecord.consentSignedAt && (
+                  <p className="shrink-0 text-xs font-semibold">
+                    Signed {formatDateTime(visitConsentRecord.consentSignedAt)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {visitRecords.length === 0 ? (
+              <EmptyState>No clinical workspace data is saved for this visit.</EmptyState>
+            ) : (
+              <div className="space-y-3 rounded-3xl border border-slate-200/80 bg-slate-50/50 p-3 sm:p-4">
+                {visitRecords.map((record) => (
+                  <div key={record.id} className="space-y-3 rounded-2xl border bg-white p-4 text-sm sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Case paper</p>
+                          <Link href={`/dashboard/clinical-records/${record.id}/edit`} className="inline-flex items-center gap-1 rounded-lg border bg-white px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/5">
+                            <Pencil className="size-3" /> Edit
+                          </Link>
+                        </div>
+                        <p className="mt-1 text-base font-bold">{record.chiefComplaint}</p>
+                        <p className="mt-1 text-muted-foreground">
+                          Diagnosis: <span className="font-medium text-foreground">{record.diagnosis || "Not recorded"}</span>
+                        </p>
+                      </div>
+                      <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                        {formatDate(record.visitDate)}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <span className="block text-muted-foreground">BP</span>
+                        <span className="font-semibold">{record.bloodPressure || "Not recorded"}</span>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <span className="block text-muted-foreground">Weight</span>
+                        <span className="font-semibold">{record.weightKg || "Not recorded"}</span>
+                      </div>
+                    </div>
+
+                    {parseMedicalHistory(record.medicalHistory).length > 0 ? (
+                      <div>
+                        <p className="mb-2 font-semibold">Medical history checklist</p>
+                        <div className="flex flex-wrap gap-2">
+                          {parseMedicalHistory(record.medicalHistory).map((item) => (
+                            <span key={item} className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border bg-slate-50/70 p-3">
+                        <p className="font-semibold">Allergies / medications</p>
+                        <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+                          Allergies: {record.drugAllergies || "Not recorded"}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
+                          Medications: {record.medications || "Not recorded"}
+                        </p>
+                        {record.otherHistory && (
+                          <p className="mt-1 whitespace-pre-wrap text-muted-foreground">Other: {record.otherHistory}</p>
+                        )}
+                      </div>
+                      <div className="rounded-2xl border bg-slate-50/70 p-3">
+                        <p className="font-semibold">Dental history</p>
+                        <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+                          {record.dentalHistory || "Not recorded"}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border bg-slate-50/70 p-3">
+                        <p className="font-semibold">Treatment / estimate</p>
+                        <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+                          {record.treatmentDone || "No treatment notes recorded."}
+                        </p>
+                        <p className="mt-2 font-semibold">Estimate: {record.estimateAmount ? money(record.estimateAmount) : "Not recorded"}</p>
+                      </div>
+                      <div className="rounded-2xl border bg-slate-50/70 p-3">
+                        <p className="font-semibold">Clinical notes</p>
+                        <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+                          {record.clinicalNotes || "No clinical notes recorded."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(record.patientSignature || record.guardianSignature) && (
+                      <div>
+                        <p className="mb-3 font-semibold">Digital signatures</p>
+                        <div className={`grid gap-3 ${record.patientSignature && record.guardianSignature ? "sm:grid-cols-2" : ""}`}>
+                          {record.patientSignature && (
+                            <div className={`${!record.guardianSignature ? "sm:col-span-2" : ""} rounded-2xl border bg-white p-3`}>
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Patient</p>
+                              <div className="flex justify-end"><div className="w-full max-w-md"><ConsentImageFrame src={record.patientSignature} alt="Patient signature" /></div></div>
+                            </div>
+                          )}
+                          {record.guardianSignature && (
+                            <div className="rounded-2xl border bg-white p-3">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Guardian</p>
+                              <div className="flex justify-end"><div className="w-full max-w-md"><ConsentImageFrame src={record.guardianSignature} alt="Guardian signature" /></div></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Billing ({patient.invoices.length})</CardTitle></CardHeader>
-          <CardContent>{patient.invoices.length === 0 ? <p className="text-sm text-muted-foreground">No invoices yet.</p> : <div className="divide-y">{patient.invoices.map((invoice) => { const paid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0); return <Link key={invoice.id} href={`/dashboard/billing/${invoice.id}`} className="flex items-center justify-between py-3 text-sm hover:text-primary"><div><p className="font-medium">{invoice.invoiceNumber}</p><p className="text-muted-foreground">{invoice.status}</p></div><p>Rs. {paid.toLocaleString("en-IN")} / Rs. {invoice.totalAmount.toLocaleString("en-IN")}</p></Link>; })}</div>}</CardContent>
+        <Card className="border-slate-200/80 shadow-sm xl:col-span-6">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="size-5 text-primary" /> Treatment plan and cost
+            </CardTitle>
+            <Link
+              href={`/dashboard/treatment-plans/new?patientId=${patient.id}${selectedVisit ? `&visitDate=${selectedVisit}` : ""}`}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"
+            >
+              <Pencil className="size-3.5" /> Add / edit
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {relatedPlans.length === 0 ? (
+              <EmptyState>No treatment plan is saved for this appointment date.</EmptyState>
+            ) : (
+              <div className="space-y-3">
+                {relatedPlans.map((plan) => (
+                  <div key={plan.id} className="rounded-2xl border p-4 text-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{plan.title}</p>
+                        <p className="mt-1 text-muted-foreground">
+                          {plan.service?.name || plan.status}
+                          {plan.toothNumber ? ` · Tooth ${plan.toothNumber}` : ""}
+                        </p>
+                        {plan.selectedTeeth.length > 0 && (
+                          <p className="mt-1 text-muted-foreground">
+                            Teeth: {plan.selectedTeeth.map((tooth) => tooth.toothNumber).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
+                        {money(plan.estimatedCost ?? plan.unitPrice)}
+                      </div>
+                    </div>
+                    {plan.notes && <p className="mt-3 whitespace-pre-wrap">{plan.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200/80 shadow-sm xl:col-span-6">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <Pill className="size-5 text-primary" /> Prescription
+            </CardTitle>
+            <Link
+              href={`/dashboard/prescriptions/new?patientId=${patient.id}`}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"
+            >
+              <Pencil className="size-3.5" /> Add / edit
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {visitPrescriptions.length === 0 ? (
+              <EmptyState>No prescription is saved for this visit.</EmptyState>
+            ) : (
+              <div className="space-y-3">
+                {visitPrescriptions.map((prescription) => (
+                  <div key={prescription.id} className="rounded-2xl border p-4 text-sm">
+                    <p className="font-semibold">
+                      {formatDate(prescription.prescribedOn)}
+                      {prescription.diagnosis ? ` · ${prescription.diagnosis}` : ""}
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap">{prescription.medicines}</p>
+                    {prescription.instructions && (
+                      <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+                        {prescription.instructions}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>Appointment history ({patient.appointments.length})</CardTitle></CardHeader>
-        <CardContent>{patient.appointments.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No appointments yet.</p> : <div className="divide-y">{patient.appointments.map((appointment) => <Link key={appointment.id} href={`/dashboard/appointments/${appointment.id}`} className="flex items-center justify-between gap-4 py-4"><div><p className="font-medium">{appointment.treatment}</p><p className="text-sm text-muted-foreground">{appointment.appointmentDate.toLocaleDateString()} - {appointment.appointmentTime}</p></div><StatusBadge status={appointment.status as "Pending" | "Confirmed" | "Completed" | "Cancelled"} /></Link>)}</div>}</CardContent>
+      <Card className="border-slate-200/80 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <IndianRupee className="size-5 text-primary" /> Invoice and payments
+            </CardTitle>
+            <Link
+              href={`/dashboard/billing/new?patientId=${patient.id}`}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"
+            >
+              <Pencil className="size-3.5" /> Add / edit
+            </Link>
+          </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl bg-muted/40 p-4">
+              <p className="text-sm text-muted-foreground">Total billed</p>
+              <p className="mt-1 text-2xl font-bold">{money(totalBilled)}</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <p className="text-sm text-emerald-700">Paid</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-700">{money(totalPaid)}</p>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-4">
+              <p className="text-sm text-amber-700">Outstanding</p>
+              <p className="mt-1 text-2xl font-bold text-amber-700">{money(outstanding)}</p>
+            </div>
+          </div>
+
+          {relatedInvoices.length === 0 ? (
+            <EmptyState>No invoice is saved for this appointment date.</EmptyState>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="bg-muted/40 text-left text-muted-foreground">
+                  <tr>
+                    <th className="p-4 font-medium">Invoice</th>
+                    <th className="p-4 font-medium">Treatment</th>
+                    <th className="p-4 font-medium">Total</th>
+                    <th className="p-4 font-medium">Outstanding</th>
+                    <th className="p-4 font-medium">Payment means</th>
+                    <th className="p-4 font-medium">Paid date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {relatedInvoices.map((invoice) => {
+                    const paid = invoice.payments.reduce(
+                      (sum, payment) => sum + payment.amount,
+                      0,
+                    );
+                    const invoiceOutstanding = invoice.totalAmount - paid;
+                    return (
+                      <tr key={invoice.id} className="border-t">
+                        <td className="p-4">
+                          <p className="font-semibold">{invoice.invoiceNumber}</p>
+                          <p className="text-muted-foreground">{invoice.status}</p>
+                        </td>
+                        <td className="p-4">{invoice.treatmentPlan?.title || "General"}</td>
+                        <td className="p-4">{money(invoice.totalAmount)}</td>
+                        <td className="p-4 font-semibold">{money(invoiceOutstanding)}</td>
+                        <td className="p-4">
+                          {invoice.payments.length
+                            ? invoice.payments.map((payment) => payment.method).join(", ")
+                            : "Not paid"}
+                        </td>
+                        <td className="p-4">
+                          {invoice.payments.length
+                            ? invoice.payments.map((payment) => formatDateTime(payment.paidAt)).join(", ")
+                            : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="size-5 text-primary" /> Full appointment history
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {patient.appointments.length === 0 ? (
+            <EmptyState>No appointment history is linked to this patient.</EmptyState>
+          ) : (
+            <div className="divide-y rounded-2xl border">
+              {patient.appointments.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  className="flex flex-wrap items-center justify-between gap-4 p-4 text-sm"
+                >
+                  <div>
+                    <p className="font-semibold">{appointment.treatment}</p>
+                    <p className="text-muted-foreground">
+                      {formatDate(appointment.appointmentDate)} · {appointment.appointmentTime}
+                    </p>
+                  </div>
+                  <StatusBadge status={appointment.status as AppointmentStatus} />
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

@@ -1,2 +1,2 @@
 import PatientForm from "@/components/patients/PatientForm";
-export default function NewPatientPage() { return <div className="mx-auto max-w-3xl space-y-6"><div><h1 className="text-3xl font-bold">Add patient</h1><p className="mt-1 text-muted-foreground">Create a patient profile for your clinic.</p></div><PatientForm /></div>; }
+export default function NewPatientPage() { return <div className="mx-auto max-w-5xl space-y-6"><div><p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">Patients</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Add patient</h1><p className="mt-1 text-muted-foreground">Create a patient profile for your clinic.</p></div><PatientForm /></div>; }

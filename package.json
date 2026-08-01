@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
+    "export:update": "node scripts/export-update-package.mjs",
     "seed:services": "node scripts/seed-deepika-services.mjs",
     "postinstall": "prisma generate"
   },

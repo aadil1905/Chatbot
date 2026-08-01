@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 
-async function primaryClinic() {
-  return prisma.clinic.findFirst({ orderBy: { id: "asc" } });
+let primaryClinicPromise: ReturnType<typeof prisma.clinic.findFirst> | null = null;
+
+export async function primaryClinic() {
+  primaryClinicPromise ??= prisma.clinic.findFirst({ orderBy: { id: "asc" } });
+  return primaryClinicPromise;
 }
 
 export async function getConversation(phone: string) {
@@ -12,6 +15,12 @@ export async function getConversation(phone: string) {
     create: { clinicId: clinic.id, phone },
     update: { lastMessageAt: new Date() },
   });
+}
+
+async function findConversation(phone: string) {
+  const clinic = await primaryClinic();
+  if (!clinic) throw new Error("No clinic has been configured yet.");
+  return prisma.whatsAppConversation.findUnique({ where: { clinicId_phone: { clinicId: clinic.id, phone } } });
 }
 
 export async function recordInboundMessage(phone: string, content: string, messageType = "TEXT") {
@@ -33,7 +42,8 @@ export async function recordOutboundMessage(phone: string, content: string, mess
 }
 
 export async function getRecentConversationMessages(phone: string) {
-  const conversation = await getConversation(phone);
+  const conversation = await findConversation(phone);
+  if (!conversation) return [];
   return prisma.whatsAppMessage.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: "desc" }, take: 18 });
 }
 
@@ -42,8 +52,18 @@ export async function setConversationLanguage(phone: string, language: string | 
   await prisma.whatsAppConversation.update({ where: { id: conversation.id }, data: { language } });
 }
 
+export async function getConversationLanguage(phone: string) {
+  const conversation = await findConversation(phone);
+  return conversation?.language || "en";
+}
+
+export async function getConversationState(phone: string) {
+  return findConversation(phone);
+}
+
 export async function getBooking(phone: string) {
-  const conversation = await getConversation(phone);
+  const conversation = await findConversation(phone);
+  if (!conversation) return null;
   return prisma.whatsAppBooking.findUnique({ where: { conversationId: conversation.id } });
 }
 
@@ -58,7 +78,8 @@ export async function updateBooking(phone: string, data: Record<string, string>)
 }
 
 export async function clearPersistentBooking(phone: string) {
-  const conversation = await getConversation(phone);
+  const conversation = await findConversation(phone);
+  if (!conversation) return;
   await prisma.whatsAppBooking.deleteMany({ where: { conversationId: conversation.id } });
 }
 

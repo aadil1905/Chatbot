@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
@@ -120,9 +119,13 @@ export default function EditAppointmentDialog({
       open={open}
       onOpenChange={setOpen}
     >
-      <DialogTrigger
-        render={<button type="button" className="inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold shadow-sm transition hover:brightness-95" style={{ backgroundColor: "#0284c7", color: "#ffffff" }}>Edit appointment</button>}
-      />
+      <Button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="h-11 rounded-xl bg-sky-600 px-5 text-sm font-bold shadow-sm hover:bg-sky-700"
+      >
+        Edit appointment
+      </Button>
 
       <DialogContent className="sm:max-w-xl">
 

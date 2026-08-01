@@ -15,9 +15,9 @@ export const appointmentSchema = z.object({
 
   appointmentTime: z.string().min(1, "Appointment time is required"),
 
-  treatment: z
-    .string()
-    .min(2, "Treatment is required"),
+  treatment: z.enum(["New Consultation", "Follow up"], {
+    error: "Reason for visit is required",
+  }),
 
   status: z.enum([
     "Pending",
@@ -51,10 +51,22 @@ export const clinicalRecordSchema = z.object({
   chiefComplaint: z.string().trim().min(2, "Chief complaint is required").max(1000),
   diagnosis: z.string().max(1000).optional(),
   clinicalNotes: z.string().max(5000).optional(),
+  medicalHistory: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  drugAllergies: z.string().max(1000).optional(),
+  medications: z.string().max(1000).optional(),
+  otherHistory: z.string().max(1000).optional(),
+  bloodPressure: z.string().max(40).optional(),
+  weightKg: z.string().max(40).optional(),
+  dentalHistory: z.string().max(3000).optional(),
+  treatmentDone: z.string().max(3000).optional(),
+  estimateAmount: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
+  consentGiven: z.boolean().optional(),
+  consentNotes: z.string().max(2000).optional(),
 });
 
 export const treatmentPlanSchema = z.object({
   patientId: z.coerce.number().int().positive(),
+  visitDate: isoDate.optional(),
   title: z.string().trim().min(2, "Plan title is required").max(200),
   status: z.enum(["Proposed", "Accepted", "In Progress", "Completed", "Cancelled"]),
   estimatedCost: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),

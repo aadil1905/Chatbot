@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 interface AppointmentData {
+  clinicId?: number;
   name: string;
   phone: string;
   date: string;
@@ -9,25 +10,28 @@ interface AppointmentData {
 }
 
 export async function saveAppointment(data: AppointmentData) {
+  const clinicId = data.clinicId ?? (await prisma.clinic.findFirst({ orderBy: { id: "asc" }, select: { id: true } }))?.id;
+  if (!clinicId) throw new Error("No clinic has been configured.");
   const appointmentDate = new Date(`${data.date}T12:00:00`);
 
   if (Number.isNaN(appointmentDate.getTime())) {
     throw new Error("Invalid appointment date");
   }
 
+  const patient = await prisma.patient.upsert({
+    where: { clinicId_phone: { clinicId, phone: data.phone } },
+    update: { fullName: data.name },
+    create: { clinicId, fullName: data.name, phone: data.phone },
+  });
   return prisma.appointment.create({
     data: {
+      clinicId,
       patientName: data.name,
       phone: data.phone,
       appointmentDate,
       appointmentTime: data.time,
       treatment: data.reason,
-      patient: {
-        connectOrCreate: {
-          where: { phone: data.phone },
-          create: { fullName: data.name, phone: data.phone },
-        },
-      },
+      patientId: patient.id,
     },
   });
 }

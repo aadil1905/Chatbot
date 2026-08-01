@@ -30,12 +30,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
+    <div className="dashboard-list-page mx-auto max-w-5xl space-y-6">
+      <header className="dashboard-page-header">
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-sky-700">Premium setup</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Clinic settings & staff access</h1>
         <p className="mt-2 text-muted-foreground">Only the clinic owner can manage clinic details and staff accounts.</p>
-      </div>
+      </header>
 
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">Could not add staff. Check the email is unused and the password has at least 10 characters.</p>}
 

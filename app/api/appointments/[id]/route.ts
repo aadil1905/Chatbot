@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { appointmentSchema } from "@/lib/validations";
 import { ZodError } from "zod";
+import { getCurrentUser } from "@/lib/auth";
 
 type RouteContext = {
   params: Promise<{
@@ -14,6 +15,8 @@ export async function PATCH(
   { params }: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
     const { id } = await params;
     const appointmentId = Number(id);
     if (!Number.isInteger(appointmentId) || appointmentId < 1) {
@@ -27,10 +30,33 @@ export async function PATCH(
       return NextResponse.json({ error: "No changes provided." }, { status: 400 });
     }
 
+    const existingAppointment = await prisma.appointment.findFirst({
+      where: { id: appointmentId, clinicId: user.clinicId, archivedAt: null },
+      select: { id: true, patientName: true, phone: true, patientId: true },
+    });
+
+    if (!existingAppointment) {
+      return NextResponse.json(
+        { error: "Appointment not found." },
+        { status: 404 }
+      );
+    }
+
+    const nextPatientName = data.patientName ?? existingAppointment.patientName;
+    const nextPhone = data.phone
+      ? data.phone.replace(/\D/g, "").slice(-10)
+      : existingAppointment.phone.replace(/\D/g, "").slice(-10);
+    const shouldSavePatient = data.status === "Completed";
+    const completedPatient = shouldSavePatient
+      ? await prisma.patient.upsert({
+          where: { clinicId_phone: { clinicId: user.clinicId, phone: nextPhone } },
+          update: { fullName: nextPatientName },
+          create: { clinicId: user.clinicId, fullName: nextPatientName, phone: nextPhone },
+        })
+      : null;
+
     const appointment = await prisma.appointment.update({
-      where: {
-        id: appointmentId,
-      },
+      where: { id: existingAppointment.id },
       data: {
         patientName:
           data.patientName !== undefined
@@ -39,7 +65,7 @@ export async function PATCH(
 
         phone:
           data.phone !== undefined
-            ? data.phone
+            ? nextPhone
             : undefined,
 
         appointmentDate:
@@ -66,6 +92,8 @@ export async function PATCH(
           data.notes !== undefined
             ? data.notes
             : undefined,
+
+        patientId: completedPatient?.id,
       },
     });
 
@@ -87,17 +115,19 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
     const { id } = await params;
     const appointmentId = Number(id);
     if (!Number.isInteger(appointmentId) || appointmentId < 1) {
       return NextResponse.json({ error: "Invalid appointment id." }, { status: 400 });
     }
 
-    await prisma.appointment.delete({
-      where: {
-        id: appointmentId,
-      },
+    const result = await prisma.appointment.updateMany({
+      where: { id: appointmentId, clinicId: user.clinicId, archivedAt: null },
+      data: { archivedAt: new Date() },
     });
+    if (result.count === 0) return NextResponse.json({ error: "Appointment not found." }, { status: 404 });
 
     return NextResponse.json({
       success: true,
@@ -106,7 +136,7 @@ export async function DELETE(
     console.error(error);
 
     return NextResponse.json(
-      { error: "Appointment not found or could not be deleted." },
+      { error: "Appointment not found or could not be archived." },
       { status: 404 }
     );
   }

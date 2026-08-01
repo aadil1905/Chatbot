@@ -24,9 +24,6 @@ async function sendRequest(payload: Record<string, unknown>) {
     );
   }
 
-  const recipient = typeof payload.to === "string" ? payload.to : "";
-  const text = payload.type === "text" && typeof payload.text === "object" && payload.text !== null && "body" in payload.text && typeof payload.text.body === "string" ? payload.text.body : payload.type === "interactive" && typeof payload.interactive === "object" && payload.interactive !== null && "body" in payload.interactive && typeof payload.interactive.body === "object" && payload.interactive.body !== null && "text" in payload.interactive.body && typeof payload.interactive.body.text === "string" ? payload.interactive.body.text : "Interactive WhatsApp message";
-  if (recipient) recordOutboundMessage(recipient, text, String(payload.type || "TEXT").toUpperCase()).catch((error) => console.error("WhatsApp conversation log error:", error));
   return data;
 }
 
@@ -42,6 +39,39 @@ export async function sendTextMessage(
     text: {
       preview_url: false,
       body: message,
+    },
+  });
+}
+
+export async function sendTemplateMessage(
+  to: string,
+  templateName: string,
+  languageCode = "en",
+  bodyParameters: string[] = []
+) {
+  return sendRequest({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: {
+        code: languageCode,
+      },
+      ...(bodyParameters.length
+        ? {
+            components: [
+              {
+                type: "body",
+                parameters: bodyParameters.map((text) => ({
+                  type: "text",
+                  text,
+                })),
+              },
+            ],
+          }
+        : {}),
     },
   });
 }
@@ -125,4 +155,3 @@ function getErrorMessage(data: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("message" in error)) return undefined;
   return typeof error.message === "string" ? error.message : undefined;
 }
-import { recordOutboundMessage } from "./whatsapp-conversations";

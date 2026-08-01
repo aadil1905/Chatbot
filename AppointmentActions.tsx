@@ -43,7 +43,11 @@ export default function AppointmentActions({
         throw new Error();
       }
 
-      toast.success(`Appointment marked as ${status}.`);
+      toast.success(
+        status === "Completed"
+          ? "Appointment completed. Patient saved to Patients list."
+          : `Appointment marked as ${status}.`
+      );
       router.refresh();
     } catch (error) {
       console.error(error);

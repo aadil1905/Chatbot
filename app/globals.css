@@ -124,9 +124,11 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image: radial-gradient(circle at 4% 0%, rgba(194, 224, 255, .5), transparent 28%), linear-gradient(180deg, #f7fbff 0%, #edf5ff 100%);
+    overflow-x: hidden;
   }
   html {
     @apply font-sans;
+    overflow-x: hidden;
   }
 }
 
@@ -151,6 +153,210 @@ a.demo-card:hover { transform: translateY(-3px); border-color: color-mix(in okla
 
 button, input, select, textarea { transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease; }
 
+.dashboard-shell {
+  animation: dashboard-fade-in .22s ease-out both;
+}
+
+.dashboard-enter {
+  animation: dashboard-rise .28s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.dashboard-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  height: 3px;
+  width: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transform: scaleX(.08);
+  transform-origin: left;
+  background: linear-gradient(90deg, #4f46e5, #0ea5e9, #22c55e);
+  box-shadow: 0 0 18px rgba(14, 165, 233, .45);
+  overflow: hidden;
+  transition: opacity .1s ease, transform 2.6s cubic-bezier(.16, 1, .3, 1);
+}
+
+.dashboard-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.88), transparent);
+  animation: dashboard-progress-shine .85s ease-in-out infinite;
+}
+
+.dashboard-progress-visible {
+  opacity: 1;
+  transform: scaleX(.88);
+}
+
+.dashboard-loading-pill {
+  position: fixed;
+  top: .85rem;
+  right: 1rem;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  border: 1px solid rgba(255,255,255,.75);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, .82);
+  color: white;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .18);
+  padding: .5rem .8rem;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .01em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px) scale(.98);
+  transition: opacity .16s ease, transform .16s ease;
+  backdrop-filter: blur(14px);
+}
+
+.dashboard-loading-pill-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.dashboard-loading-spinner {
+  width: .82rem;
+  height: .82rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, .4);
+  border-top-color: #38bdf8;
+  animation: dashboard-spin .65s linear infinite;
+}
+
+.dashboard-shell a[href],
+.dashboard-shell button,
+.dashboard-shell [role="button"],
+.login-screen a[href],
+.login-screen button {
+  transform: translateZ(0);
+  transition:
+    transform .14s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background-color .18s ease,
+    color .18s ease,
+    opacity .18s ease,
+    filter .18s ease;
+}
+
+.dashboard-shell a[href]:hover,
+.dashboard-shell button:hover,
+.dashboard-shell [role="button"]:hover,
+.login-screen a[href]:hover,
+.login-screen button:hover {
+  filter: saturate(1.04);
+}
+
+.dashboard-shell a[href]:active,
+.dashboard-shell button:active,
+.dashboard-shell [role="button"]:active,
+.login-screen a[href]:active,
+.login-screen button:active {
+  transform: translateY(1px) scale(.985);
+}
+
+.dashboard-shell button:focus-visible,
+.dashboard-shell a[href]:focus-visible,
+.dashboard-shell input:focus-visible,
+.dashboard-shell select:focus-visible,
+.dashboard-shell textarea:focus-visible,
+.login-screen button:focus-visible,
+.login-screen a[href]:focus-visible,
+.login-screen input:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, .24);
+  outline-offset: 2px;
+}
+
+.dashboard-shell form[data-pending="true"] {
+  position: relative;
+}
+
+.dashboard-shell button[data-pending="true"],
+.dashboard-shell a[data-navigation-pending="true"],
+.dashboard-shell form[data-pending="true"] button[type="submit"],
+.dashboard-shell form[data-pending="true"] button:not([type]) {
+  pointer-events: none;
+  opacity: .82;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, .12);
+}
+
+.dashboard-shell a[data-navigation-pending="true"] {
+  position: relative;
+}
+
+.dashboard-shell a[data-navigation-pending="true"]::after,
+.dashboard-shell button[data-pending="true"]::after,
+.dashboard-shell form[data-pending="true"] button[type="submit"]::after,
+.dashboard-shell form[data-pending="true"] button:not([type])::after {
+  content: "";
+  display: inline-block;
+  width: .9rem;
+  height: .9rem;
+  margin-left: .5rem;
+  vertical-align: -2px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: dashboard-spin .65s linear infinite;
+}
+
+@keyframes dashboard-spin {
+  to { transform: rotate(360deg); }
+}
+
+.login-submit-spinner {
+  width: .9rem;
+  height: .9rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: dashboard-spin .65s linear infinite;
+}
+
+@keyframes dashboard-progress-shine {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(260%); }
+}
+
+@keyframes dashboard-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dashboard-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell,
+  .dashboard-enter,
+  .dashboard-progress,
+  .dashboard-loading-spinner,
+  .dashboard-shell a[data-navigation-pending="true"]::after,
+  .dashboard-shell button[data-pending="true"]::after,
+  .dashboard-shell form[data-pending="true"] button[type="submit"]::after,
+  .dashboard-shell form[data-pending="true"] button:not([type])::after,
+  .login-submit-spinner,
+  .dashboard-progress::after {
+    animation: none;
+    transition: none;
+  }
+}
+
 /* Shared visual treatment for every existing Premium feature screen. */
 main { background: transparent; }
 input, select, textarea { border-color: #cdddf0 !important; background-color: rgba(255,255,255,.82) !important; }
@@ -170,4 +376,67 @@ input:focus, select:focus, textarea:focus { border-color: #5b9cff !important; bo
 
 @media (max-width: 700px) {
   .exports-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Unified clinic form language: matches the patient editor across every workflow. */
+.dashboard-shell form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.dashboard-shell form select,
+.dashboard-shell form [role="combobox"] {
+  min-height: 2.75rem;
+  border-radius: .75rem;
+  background: #fff !important;
+}
+
+.dashboard-shell form textarea {
+  border-radius: .75rem;
+  background: #fff !important;
+}
+
+.dashboard-shell form label {
+  color: #1e293b;
+}
+
+.clinic-workflow-form {
+  position: relative;
+  overflow: hidden;
+  border-color: #d7e4f3 !important;
+  box-shadow: 0 16px 40px rgba(50, 93, 141, .09) !important;
+}
+
+.clinic-workflow-form::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: .35rem;
+  background: linear-gradient(90deg, #0284c7, #22d3ee, #a5f3fc);
+}
+
+.dashboard-shell table thead {
+  background: linear-gradient(90deg, rgba(240,249,255,.95), rgba(248,250,252,.9));
+}
+
+.dashboard-shell table tbody tr {
+  transition: background-color .16s ease;
+}
+
+.dashboard-list-page > header,
+.dashboard-list-page > .dashboard-page-header {
+  border: 1px solid #dbeafe;
+  border-radius: 1.5rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #fff 55%, #ecfeff 100%);
+  padding: 1.5rem;
+  box-shadow: 0 10px 28px rgba(50, 93, 141, .06);
+}
+
+.dashboard-list-page > [data-slot="card"],
+.dashboard-list-page > .rounded-2xl.border {
+  overflow: hidden;
+  border-radius: 1.5rem;
+  box-shadow: 0 12px 32px rgba(50, 93, 141, .07);
+}
+
+@media (max-width: 640px) {
+  .dashboard-list-page > header,
+  .dashboard-list-page > .dashboard-page-header { padding: 1.25rem; }
+  .dashboard-shell form > .p-6 { padding: 1.25rem; }
 }

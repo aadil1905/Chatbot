@@ -10,6 +10,7 @@ datasource db {
 
 model Appointment {
   id              Int       @id @default(autoincrement())
+  clinicId        Int
   phone           String
   createdAt       DateTime  @default(now())
   appointmentDate DateTime
@@ -21,23 +22,27 @@ model Appointment {
   reminderSentAt  DateTime?
   treatment       String
   patientId       Int?
+  archivedAt      DateTime?
+  clinic          Clinic    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   patient         Patient?  @relation(fields: [patientId], references: [id], onDelete: SetNull)
   lead            Lead?
 
+  @@index([clinicId, archivedAt, appointmentDate])
   @@index([patientId])
 }
 
 model Patient {
-  id                 Int                @id @default(autoincrement())
+  id                 Int                    @id @default(autoincrement())
+  clinicId           Int
   fullName           String
-  phone              String             @unique
+  phone              String
   email              String?
   dateOfBirth        DateTime?
   gender             String?
   address            String?
   medicalNotes       String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
   appointments       Appointment[]
   clinicalRecords    ClinicalRecord[]
   treatmentPlans     TreatmentPlan[]
@@ -45,7 +50,11 @@ model Patient {
   prescriptions      Prescription[]
   dentalChartEntries DentalChartEntry[]
   labCases           LabCase[]
+  intakeRequests     PatientIntakeRequest[]
+  clinic             Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Restrict)
 
+  @@unique([clinicId, phone])
+  @@index([clinicId, fullName])
   @@index([fullName])
 }
 
@@ -83,15 +92,29 @@ model Payment {
 }
 
 model ClinicalRecord {
-  id             Int      @id @default(autoincrement())
-  patientId      Int
-  visitDate      DateTime @default(now())
-  chiefComplaint String
-  diagnosis      String?
-  clinicalNotes  String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  id                Int       @id @default(autoincrement())
+  patientId         Int
+  visitDate         DateTime  @default(now())
+  chiefComplaint    String
+  diagnosis         String?
+  clinicalNotes     String?
+  medicalHistory    String?
+  drugAllergies     String?
+  medications       String?
+  otherHistory      String?
+  bloodPressure     String?
+  weightKg          String?
+  dentalHistory     String?
+  treatmentDone     String?
+  estimateAmount    Int?
+  consentGiven      Boolean   @default(false)
+  consentNotes      String?
+  patientSignature  String?
+  guardianSignature String?
+  consentSignedAt   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  patient           Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@index([patientId, visitDate])
 }
@@ -100,35 +123,39 @@ model DentalChartEntry {
   id          Int      @id @default(autoincrement())
   patientId   Int
   toothNumber String
+  visitDate   DateTime @default(now())
   condition   String   @default("HEALTHY")
   notes       String?
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
   patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@unique([patientId, toothNumber])
+  @@unique([patientId, toothNumber, visitDate])
+  @@index([patientId, visitDate])
   @@index([patientId, condition])
 }
 
 model TreatmentPlan {
-  id            Int            @id @default(autoincrement())
+  id            Int                  @id @default(autoincrement())
   patientId     Int
+  visitDate     DateTime?
   title         String
-  status        String         @default("Proposed")
+  status        String               @default("Proposed")
   estimatedCost Int?
   serviceId     Int?
   toothNumber   String?
   unitPrice     Int?
   notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  patient       Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
   invoices      Invoice[]
   labCases      LabCase[]
-  service       ClinicService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  service       ClinicService?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   selectedTeeth TreatmentPlanTooth[]
 
   @@index([patientId, status])
+  @@index([patientId, visitDate])
   @@index([serviceId])
 }
 
@@ -178,6 +205,9 @@ model Clinic {
   inventoryItems  InventoryItem[]
   labCases        LabCase[]
   launchChecklist ClinicLaunchChecklist?
+  intakeRequests  PatientIntakeRequest[]
+  appointments    Appointment[]
+  patients        Patient[]
   auditLogs       AuditLog[]
 }
 
@@ -437,4 +467,39 @@ model ClinicLaunchChecklist {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   clinic                    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+model PatientIntakeRequest {
+  id                Int       @id @default(autoincrement())
+  clinicId          Int
+  patientId         Int
+  token             String    @unique
+  status            String    @default("CREATED")
+  expiresAt         DateTime
+  sentAt            DateTime?
+  openedAt          DateTime?
+  completedAt       DateTime?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  medicalHistory    String?
+  drugAllergies     String?
+  medications       String?
+  otherHistory      String?
+  bloodPressure     String?
+  weightKg          String?
+  dentalHistory     String?
+  consentGiven      Boolean   @default(false)
+  consentNotes      String?
+  patientSignature  String?
+  guardianSignature String?
+  treatmentDone     String?
+  estimateAmount    Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  clinic            Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient           Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, status, createdAt])
+  @@index([patientId, createdAt])
+  @@index([expiresAt])
 }

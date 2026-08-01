@@ -39,6 +39,19 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+async function safeDashboardQuery<T>(
+  label: string,
+  fallback: T,
+  query: () => Promise<T>
+) {
+  try {
+    return await query();
+  } catch (error) {
+    console.error(`Dashboard query failed: ${label}`, error);
+    return fallback;
+  }
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
 
@@ -67,7 +80,7 @@ export default async function DashboardPage() {
     recentConversations,
     activeServices,
   ] = await Promise.all([
-    prisma.appointment.findMany({
+    safeDashboardQuery("today appointments", [], () => prisma.appointment.findMany({
       where: {
         appointmentDate: {
           gte: today,
@@ -81,38 +94,39 @@ export default async function DashboardPage() {
         appointmentTime: "asc",
       },
       take: 7,
-    }),
+    })),
 
-    prisma.patient.count(),
+    safeDashboardQuery("total patients", 0, () => prisma.patient.count()),
 
-    prisma.patient.count({
+    safeDashboardQuery("new patients", 0, () => prisma.patient.count({
       where: {
         createdAt: {
           gte: recentStart,
         },
       },
-    }),
+    })),
 
-    prisma.treatmentPlan.count({
+    safeDashboardQuery("treatment plans", 0, () => prisma.treatmentPlan.count({
       where: {
         createdAt: {
           gte: monthStart,
         },
       },
-    }),
+    })),
 
-    prisma.invoice.findMany({
+    safeDashboardQuery("monthly invoices", [], () => prisma.invoice.findMany({
       where: {
         issueDate: {
           gte: monthStart,
         },
       },
-      include: {
-        payments: true,
+      select: {
+        id: true,
+        totalAmount: true,
       },
-    }),
+    })),
 
-    prisma.payment.aggregate({
+    safeDashboardQuery("monthly payments", { _sum: { amount: 0 } }, () => prisma.payment.aggregate({
       where: {
         paidAt: {
           gte: monthStart,
@@ -121,9 +135,9 @@ export default async function DashboardPage() {
       _sum: {
         amount: true,
       },
-    }),
+    })),
 
-    prisma.appointment.findMany({
+    safeDashboardQuery("pending appointments", [], () => prisma.appointment.findMany({
       where: {
         status: "Pending",
       },
@@ -136,9 +150,9 @@ export default async function DashboardPage() {
         },
       ],
       take: 4,
-    }),
+    })),
 
-    prisma.whatsAppConversation.findMany({
+    safeDashboardQuery("recent WhatsApp conversations", [], () => prisma.whatsAppConversation.findMany({
       where: {
         clinicId: user.clinicId,
       },
@@ -154,9 +168,9 @@ export default async function DashboardPage() {
           take: 1,
         },
       },
-    }),
+    })),
 
-    prisma.clinicService.findMany({
+    safeDashboardQuery("active services", [], () => prisma.clinicService.findMany({
       where: {
         clinicId: user.clinicId,
         active: true,
@@ -170,7 +184,7 @@ export default async function DashboardPage() {
         },
       ],
       take: 12,
-    }),
+    })),
   ]);
 
   const production = invoices.reduce(
@@ -224,7 +238,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1550px] space-y-5 pb-8">
+    <div className="dashboard-enter mx-auto max-w-[1700px] space-y-5 pb-8">
 
       {/* Greeting Header */}
       <section className="flex flex-col justify-between gap-4 rounded-[2rem] border border-white/80 bg-white/55 px-6 py-6 shadow-[0_18px_45px_rgba(72,105,152,.09)] backdrop-blur-sm lg:flex-row lg:items-center lg:px-8">
@@ -307,7 +321,7 @@ export default async function DashboardPage() {
       </section>
 
       {/* Stats */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {stats.map(
           ({
             label,
@@ -320,15 +334,15 @@ export default async function DashboardPage() {
             <Link
               key={label}
               href={href}
-              className="demo-card group p-5"
+              className="demo-card group flex min-h-[150px] flex-col justify-between p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-600">
+                  <p className="min-h-10 text-sm font-semibold leading-5 text-slate-600">
                     {label}
                   </p>
 
-                  <p className="mt-2 truncate text-2xl font-bold tracking-tight text-slate-950">
+                  <p className="mt-2 truncate text-3xl font-bold tracking-tight text-slate-950">
                     {value}
                   </p>
                 </div>
@@ -340,7 +354,7 @@ export default async function DashboardPage() {
                 </div>
               </div>
 
-              <p className="mt-4 flex items-center gap-1 text-xs font-semibold text-slate-500">
+              <p className="mt-4 flex items-center gap-1 text-sm font-semibold text-slate-500">
                 {note}
 
                 <ArrowUpRight className="size-3 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -351,10 +365,10 @@ export default async function DashboardPage() {
       </section>
 
       {/* Main Dashboard Content */}
-      <section className="grid gap-5 xl:grid-cols-[0.8fr_1.35fr_0.9fr]">
+      <section className="grid gap-5 xl:grid-cols-1 2xl:grid-cols-[minmax(340px,0.78fr)_minmax(600px,1.35fr)_minmax(360px,0.9fr)]">
 
         {/* Today's Appointments */}
-        <article className="demo-card overflow-hidden">
+        <article className="demo-card min-w-0 overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
               <h2 className="font-bold text-slate-950">
@@ -429,7 +443,7 @@ export default async function DashboardPage() {
         </article>
 
         {/* Dental Odontogram */}
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <DentalOdontogram />
 
           <Link
@@ -442,7 +456,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Right Column */}
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
 
           {/* Patient Base */}
           <article className="demo-card p-5">

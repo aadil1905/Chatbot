@@ -9,11 +9,10 @@ import { toggleLaunchItemAction } from "./actions";
 export default async function LaunchPage() {
   const user = await requireUser();
   if (user.role !== "OWNER") redirect("/dashboard");
-  const [checklist, serviceCount, staffCount, whatsapp] = await Promise.all([
+  const [checklist, serviceCount, staffCount] = await Promise.all([
     prisma.clinicLaunchChecklist.findUnique({ where: { clinicId: user.clinicId } }),
     prisma.clinicService.count({ where: { clinicId: user.clinicId, active: true } }),
     prisma.user.count({ where: { clinicId: user.clinicId, active: true } }),
-    prisma.clinicWhatsAppSettings.findUnique({ where: { clinicId: user.clinicId } }),
   ]);
   const environment = [
     { label: "Database connection", ready: Boolean(process.env.DATABASE_URL && process.env.DIRECT_URL) },

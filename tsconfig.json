@@ -32,6 +32,7 @@
   ],
   "exclude": [
     "node_modules",
+    "update-packages",
     "*.tsx",
     "DentalAI-Premium-v1.0-Build-Fix-Appointment-20260722",
     "DentalAI-Premium-v1.0-Client-Demo-UI-20260722171553",

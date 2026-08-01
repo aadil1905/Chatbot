@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 
 type Props = {
@@ -39,10 +38,10 @@ export default function DeleteAppointmentDialog({
       );
 
       if (!response.ok) {
-        throw new Error("Failed to delete appointment");
+        throw new Error("Failed to archive appointment");
       }
 
-      toast.success("Appointment deleted successfully.");
+      toast.success("Appointment archived. Patient records are unchanged.");
 
       setOpen(false);
 
@@ -50,7 +49,7 @@ export default function DeleteAppointmentDialog({
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to delete appointment.");
+      toast.error("Failed to archive appointment.");
     } finally {
       setLoading(false);
     }
@@ -58,22 +57,21 @@ export default function DeleteAppointmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button className="bg-red-600 hover:bg-red-700">
-            Delete
-          </Button>
-        }
-      />
+      <Button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="h-11 rounded-xl bg-slate-700 px-5 text-sm font-bold hover:bg-slate-800"
+      >
+        Archive
+      </Button>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Appointment</DialogTitle>
+          <DialogTitle>Archive Appointment</DialogTitle>
 
           <DialogDescription>
-            This action cannot be undone.
-            <br />
-            Are you sure you want to delete this appointment?
+            This removes the appointment from the active list while keeping its
+            history, patient profile, and medical records.
           </DialogDescription>
         </DialogHeader>
 
@@ -89,9 +87,9 @@ export default function DeleteAppointmentDialog({
           <Button
             onClick={deleteAppointment}
             disabled={loading}
-            className="bg-red-600 hover:bg-red-700"
+            className="bg-slate-700 hover:bg-slate-800"
           >
-            {loading ? "Deleting..." : "Delete"}
+            {loading ? "Archiving..." : "Archive"}
           </Button>
         </DialogFooter>
       </DialogContent>

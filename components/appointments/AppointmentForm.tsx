@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { toast } from "sonner";
+import { CalendarPlus, Loader2 } from "lucide-react";
 
 import { appointmentSchema } from "@/lib/validations";
 import type { AppointmentFormValues } from "@/lib/validations";
@@ -40,9 +41,9 @@ export default function AppointmentForm({
 
   const {
     register,
+    control,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
@@ -58,7 +59,7 @@ export default function AppointmentForm({
         defaultValues?.appointmentTime ?? "",
 
       treatment:
-        defaultValues?.treatment ?? "",
+        defaultValues?.treatment === "Follow up" ? "Follow up" : defaultValues?.treatment === "New Consultation" ? "New Consultation" : "New Consultation",
 
       status:
         defaultValues?.status ?? "Pending",
@@ -72,7 +73,8 @@ export default function AppointmentForm({
     register("status");
   }, [register]);
 
-  const status = watch("status");
+  const status = useWatch({ control, name: "status" });
+  const treatment = useWatch({ control, name: "treatment" });
 
   async function onSubmit(
     values: AppointmentFormValues
@@ -105,6 +107,7 @@ export default function AppointmentForm({
           "Failed to save appointment."
         );
       }
+      const saved = await response.json();
 
       toast.success(
         mode === "create"
@@ -112,7 +115,15 @@ export default function AppointmentForm({
           : "Appointment updated successfully."
       );
 
-      router.push("/dashboard/appointments");
+      if (mode === "create" && saved.intakeRequired) {
+        const query = new URLSearchParams({
+          name: values.patientName,
+          phone: values.phone.replace(/\D/g, "").slice(-10),
+        });
+        router.push(`/dashboard/patient-intake?${query.toString()}`);
+      } else {
+        router.push("/dashboard/appointments");
+      }
 
       router.refresh();
           } catch (error) {
@@ -131,17 +142,25 @@ export default function AppointmentForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-6"
+      className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm"
     >
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="border-b border-border bg-gradient-to-r from-sky-50 to-white px-6 py-5">
+        <div className="flex items-start gap-3">
+          <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-sky-700"><CalendarPlus className="size-5" /></div>
+          <div><h2 className="text-lg font-bold text-slate-950">Appointment details</h2><p className="mt-1 text-sm text-muted-foreground">Add the patient, schedule, visit reason, and booking status.</p></div>
+        </div>
+      </div>
+      <div className="space-y-6 p-6">
+      <div className="grid gap-5 md:grid-cols-2">
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            Patient Name
+          <label className="text-sm font-semibold text-slate-800">
+            Patient name <span className="text-red-500">*</span>
           </label>
 
           <Input
             placeholder="John Doe"
+            className="h-11 rounded-xl bg-white"
             {...register("patientName")}
           />
 
@@ -153,12 +172,13 @@ export default function AppointmentForm({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            Phone Number
+          <label className="text-sm font-semibold text-slate-800">
+            Phone number <span className="text-red-500">*</span>
           </label>
 
           <Input
-            placeholder="+1 555 123 4567"
+            placeholder="10-digit mobile number"
+            className="h-11 rounded-xl bg-white"
             {...register("phone")}
           />
 
@@ -170,13 +190,14 @@ export default function AppointmentForm({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            Appointment Date
+          <label className="text-sm font-semibold text-slate-800">
+            Appointment date <span className="text-red-500">*</span>
           </label>
 
           <Input
   type="date"
   lang="en-CA"
+  className="h-11 rounded-xl bg-white"
   {...register("appointmentDate")}
 />
           {errors.appointmentDate && (
@@ -187,12 +208,13 @@ export default function AppointmentForm({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            Appointment Time
+          <label className="text-sm font-semibold text-slate-800">
+            Appointment time <span className="text-red-500">*</span>
           </label>
 
           <Input
   type="time"
+  className="h-11 rounded-xl bg-white"
   {...register("appointmentTime")}
 />
 
@@ -204,14 +226,32 @@ export default function AppointmentForm({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            Treatment
+          <label className="text-sm font-semibold text-slate-800">
+            Reason for visit
           </label>
 
-          <Input
-            placeholder="Root Canal"
-            {...register("treatment")}
-          />
+          <Select
+            value={treatment}
+            onValueChange={(value) =>
+              setValue("treatment", value as AppointmentFormValues["treatment"], {
+                shouldValidate: true,
+                shouldDirty: true,
+              })
+            }
+          >
+            <SelectTrigger className="h-11 w-full rounded-xl bg-white">
+              <SelectValue placeholder="Select reason" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="New Consultation">
+                New Consultation
+              </SelectItem>
+              <SelectItem value="Follow up">
+                Follow up
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <input type="hidden" {...register("treatment")} />
 
           {errors.treatment && (
             <p className="text-sm text-destructive">
@@ -221,7 +261,7 @@ export default function AppointmentForm({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">
+          <label className="text-sm font-semibold text-slate-800">
             Status
           </label>
 
@@ -238,7 +278,7 @@ export default function AppointmentForm({
               )
             }
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="h-11 w-full rounded-xl bg-white">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
 
@@ -274,13 +314,14 @@ export default function AppointmentForm({
         </div>
       </div>
             <div className="space-y-2">
-        <label className="text-sm font-medium">
+        <label className="text-sm font-semibold text-slate-800">
           Notes
         </label>
 
         <Textarea
           rows={5}
           placeholder="Additional notes about the appointment..."
+          className="rounded-xl bg-white"
           {...register("notes")}
         />
 
@@ -290,12 +331,14 @@ export default function AppointmentForm({
           </p>
         )}
       </div>
+      </div>
 
-      <div className="flex items-center justify-end gap-3 border-t pt-6">
+      <div className="flex flex-col-reverse gap-3 border-t border-border bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
         <Button
           type="button"
           variant="outline"
           disabled={loading}
+          className="h-11 rounded-xl px-5"
           onClick={() =>
             router.push("/dashboard/appointments")
           }
@@ -306,12 +349,10 @@ export default function AppointmentForm({
         <Button
           type="submit"
           disabled={loading}
+          className="h-11 rounded-xl px-6"
         >
-          {loading
-            ? mode === "create"
-              ? "Creating..."
-              : "Saving..."
-            : mode === "create"
+          {loading ? <><Loader2 className="size-4 animate-spin" />{mode === "create" ? "Creating appointment..." : "Saving changes..."}</> :
+            mode === "create"
               ? "Create Appointment"
               : "Save Changes"}
         </Button>

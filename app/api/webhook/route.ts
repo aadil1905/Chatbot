@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clearBooking, continueBooking, hasBooking, startBooking } from "@/lib/booking";
-import { clearConversation, getAIReply } from "@/lib/ai";
+import { clearBooking, continueBooking, hasBooking, resumeBooking, startBooking, startReschedule } from "@/lib/booking";
+import { clearConversation } from "@/lib/ai";
 import { clinicBrand } from "@/lib/brand";
-import { formatClinicInformation, getClinicConfiguration } from "@/lib/clinic-config";
+import { defaultServices } from "@/lib/clinic-config";
 import { detectIntent } from "@/lib/intent";
-import { clearLanguage, selectLanguage, welcomeFor } from "@/lib/language";
+import { currentLanguage, menuCopyFor, selectLanguage, welcomeFor } from "@/lib/language";
 import { sendListMessage, sendReplyButtons, sendTextMessage } from "@/lib/whatsapp";
-import { recordInboundMessage } from "@/lib/whatsapp-conversations";
+import { getConversationState } from "@/lib/whatsapp-conversations";
 
 export async function GET(req: NextRequest) {
   const mode = req.nextUrl.searchParams.get("hub.mode");
@@ -36,6 +36,35 @@ async function showLanguagePicker(to: string) {
   );
 }
 
+async function showMainMenu(to: string) {
+  const copy = await welcomeFor(await currentLanguage(to));
+  await sendReplyButtons(to, copy.text, [
+    { id: "BOOK_APPOINTMENT", title: copy.book },
+    { id: "SERVICES", title: copy.services },
+    { id: "CONTACT", title: copy.contact },
+  ]);
+}
+
+function runInBackground(work: Promise<unknown>, label: string) {
+  work.catch((error) => console.error(`${label}:`, error));
+}
+
+function cleanInput(value: string) {
+  return value.normalize("NFKC").toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ");
+}
+
+function matchesAny(value: string, aliases: string[]) {
+  const cleaned = cleanInput(value);
+  return aliases.some((alias) => cleaned === cleanInput(alias));
+}
+
+function menuAction(value: string) {
+  if (matchesAny(value, ["BOOK_APPOINTMENT", "Book appointment", "appointment", "book", "अपॉइंटमेंट", "अपॉइंटमेंट बुक", "बुक अपॉइंटमेंट", "भेट", "भेट बुक"])) return "BOOK_APPOINTMENT";
+  if (matchesAny(value, ["SERVICES", "Services", "service", "सेवाएं", "सेवा", "services list", "treatment", "इलाज", "उपचार"])) return "SERVICES";
+  if (matchesAny(value, ["CONTACT", "Contact", "संपर्क", "phone", "number", "address", "पता", "फोन", "नंबर"])) return "CONTACT";
+  return "";
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -53,33 +82,53 @@ export async function POST(req: NextRequest) {
 
     if (!userMessage) return NextResponse.json({ received: true });
 
-    await recordInboundMessage(from, userMessage, message.type === "interactive" ? "INTERACTIVE" : "TEXT");
+    const conversation = await getConversationState(from);
+    const normalized = cleanInput(userMessage);
+    const greeting = /^(hi+|hey+|hello+|menu|start|नमस्ते|नमस्कार)$/i.test(normalized);
 
-    const normalized = userMessage.toLowerCase().trim().replace(/[^\w\s]/g, "");
-    const greeting = /^(hi+|hey+|hello+|menu|start)$/i.test(normalized);
+    if (!conversation?.language && !userMessage.startsWith("LANG_")) {
+      if (await hasBooking(from)) {
+        await resumeBooking(from);
+        return NextResponse.json({ received: true });
+      }
+      await showLanguagePicker(from);
+      return NextResponse.json({ received: true });
+    }
 
     if (greeting) {
-      await clearBooking(from);
-      await clearConversation(from);
-      await clearLanguage(from);
+      if (await hasBooking(from)) {
+        await resumeBooking(from);
+        return NextResponse.json({ received: true });
+      }
+      runInBackground(clearBooking(from), "WhatsApp clear booking error");
+      runInBackground(clearConversation(from), "WhatsApp clear conversation error");
       await showLanguagePicker(from);
       return NextResponse.json({ received: true });
     }
 
     const language = await selectLanguage(from, userMessage);
     if (language) {
-      const copy = await welcomeFor(language);
-      await sendReplyButtons(from, copy.text, [
-        { id: "BOOK_APPOINTMENT", title: copy.book },
-        { id: "SERVICES", title: copy.services },
-        { id: "CONTACT", title: copy.contact },
-      ]);
+      await showMainMenu(from);
       return NextResponse.json({ received: true });
     }
 
-    if (normalized === "cancel" || normalized === "cancel_booking") {
+    if (matchesAny(userMessage, ["cancel", "cancel booking", "cancel_booking", "कैंसल", "रद्द", "नहीं", "नको"])) {
+      const copy = menuCopyFor(await currentLanguage(from));
       await clearBooking(from);
-      await sendTextMessage(from, "Booking cancelled.");
+      await sendTextMessage(from, copy.cancelled);
+      return NextResponse.json({ received: true });
+    }
+
+    if (userMessage === "CONTINUE_BOOKING") {
+      await resumeBooking(from);
+      return NextResponse.json({ received: true });
+    }
+
+    if (userMessage.startsWith("RESCHEDULE_APPOINTMENT_")) {
+      const appointmentId = Number(userMessage.replace("RESCHEDULE_APPOINTMENT_", ""));
+      if (Number.isInteger(appointmentId)) {
+        await startReschedule(from, appointmentId);
+      }
       return NextResponse.json({ received: true });
     }
 
@@ -88,30 +137,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    if (userMessage === "BOOK_APPOINTMENT" || detectIntent(userMessage) === "BOOK_APPOINTMENT") {
+    const action = menuAction(userMessage);
+
+    if (action === "BOOK_APPOINTMENT" || detectIntent(userMessage) === "BOOK_APPOINTMENT") {
       await startBooking(from);
       return NextResponse.json({ received: true });
     }
 
-    if (userMessage === "SERVICES") {
-      const clinic = await getClinicConfiguration();
-      const services = clinic?.services || [];
-      const serviceMessage = services.length
-        ? `Our services:\n\n${services.map((service) => `- ${service.name}${service.description ? `: ${service.description}` : ""}${service.price !== null ? ` (Rs. ${service.price})` : ""}`).join("\n")}`
-        : "Our service list is being updated. Please choose Book appointment to speak with us.";
+    if (action === "SERVICES") {
+      const language = await currentLanguage(from);
+      const copy = menuCopyFor(language);
+      const serviceMessage = defaultServices.length
+        ? `${copy.servicesTitle}\n\n${defaultServices.map((service) => `- ${service.name}${service.description ? `: ${service.description}` : ""}`).join("\n")}`
+        : copy.servicesEmpty;
       await sendTextMessage(from, serviceMessage);
       return NextResponse.json({ received: true });
     }
 
-    if (userMessage === "CONTACT") {
-      const clinic = await getClinicConfiguration();
-      const fallback = formatClinicInformation(clinic);
-      await sendTextMessage(from, clinic?.whatsapp?.contactMessage || fallback);
+    if (action === "CONTACT") {
+      const copy = menuCopyFor(await currentLanguage(from));
+      const contactMessage = [
+        copy.contactTitle,
+        clinicBrand.clinicName,
+        `${copy.phone}: ${clinicBrand.phones.join(" / ")}`,
+        `${copy.email}: ${clinicBrand.email}`,
+        `${copy.address}: ${clinicBrand.address}`,
+        "",
+        copy.hours,
+        copy.monFri,
+        copy.saturday,
+        copy.sunday,
+      ].join("\n");
+      await sendTextMessage(from, contactMessage);
       return NextResponse.json({ received: true });
     }
 
-    const aiReply = await getAIReply(from, userMessage);
-    await sendTextMessage(from, aiReply.message);
+    await showMainMenu(from);
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error(error);

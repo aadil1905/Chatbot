@@ -15,4 +15,5 @@ export async function getAIReply(userId: string, message: string) {
 
 export async function clearConversation(_userId: string) {
   // Conversation history is intentionally retained in the database for continuity and CRM review.
+  void _userId;
 }

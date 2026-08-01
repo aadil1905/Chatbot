@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 interface AppointmentData {
+  clinicId: number;
   name: string;
   phone: string;
   date: string;
@@ -15,19 +16,21 @@ export async function saveAppointment(data: AppointmentData) {
     throw new Error("Invalid appointment date");
   }
 
+  const patient = await prisma.patient.upsert({
+    where: { clinicId_phone: { clinicId: data.clinicId, phone: data.phone } },
+    update: { fullName: data.name },
+    create: { clinicId: data.clinicId, fullName: data.name, phone: data.phone },
+  });
   return prisma.appointment.create({
     data: {
+      clinicId: data.clinicId,
       patientName: data.name,
       phone: data.phone,
       appointmentDate,
       appointmentTime: data.time,
       treatment: data.reason,
-      patient: {
-        connectOrCreate: {
-          where: { phone: data.phone },
-          create: { fullName: data.name, phone: data.phone },
-        },
-      },
+      patientId: patient.id,
+      source: "WhatsApp",
     },
   });
 }

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Archived package snapshots are not part of the active application.
+    "DentalAI-Premium-v1.0-*/**",
+    "update-packages/**",
   ]),
 ]);
 

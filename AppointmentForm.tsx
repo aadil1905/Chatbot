@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { toast } from "sonner";
@@ -40,9 +40,9 @@ export default function AppointmentForm({
 
   const {
     register,
+    control,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
@@ -58,7 +58,7 @@ export default function AppointmentForm({
         defaultValues?.appointmentTime ?? "",
 
       treatment:
-        defaultValues?.treatment ?? "",
+        defaultValues?.treatment === "Follow up" ? "Follow up" : defaultValues?.treatment === "New Consultation" ? "New Consultation" : "New Consultation",
 
       status:
         defaultValues?.status ?? "Pending",
@@ -72,7 +72,8 @@ export default function AppointmentForm({
     register("status");
   }, [register]);
 
-  const status = watch("status");
+  const status = useWatch({ control, name: "status" });
+  const treatment = useWatch({ control, name: "treatment" });
 
   async function onSubmit(
     values: AppointmentFormValues
@@ -205,13 +206,31 @@ export default function AppointmentForm({
 
         <div className="space-y-2">
           <label className="text-sm font-medium">
-            Treatment
+            Reason for visit
           </label>
 
-          <Input
-            placeholder="Root Canal"
-            {...register("treatment")}
-          />
+          <Select
+            value={treatment}
+            onValueChange={(value) =>
+              setValue("treatment", value as AppointmentFormValues["treatment"], {
+                shouldValidate: true,
+                shouldDirty: true,
+              })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select reason" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="New Consultation">
+                New Consultation
+              </SelectItem>
+              <SelectItem value="Follow up">
+                Follow up
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <input type="hidden" {...register("treatment")} />
 
           {errors.treatment && (
             <p className="text-sm text-destructive">

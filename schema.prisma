@@ -45,6 +45,7 @@ model Patient {
   prescriptions   Prescription[]
   dentalChartEntries DentalChartEntry[]
   labCases        LabCase[]
+  intakeRequests  PatientIntakeRequest[]
 
   @@index([fullName])
 }
@@ -83,15 +84,29 @@ model Payment {
 }
 
 model ClinicalRecord {
-  id             Int      @id @default(autoincrement())
-  patientId      Int
-  visitDate      DateTime @default(now())
-  chiefComplaint String
-  diagnosis      String?
-  clinicalNotes  String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  id              Int      @id @default(autoincrement())
+  patientId       Int
+  visitDate       DateTime @default(now())
+  chiefComplaint  String
+  diagnosis       String?
+  clinicalNotes   String?
+  medicalHistory  String?
+  drugAllergies   String?
+  medications     String?
+  otherHistory    String?
+  bloodPressure   String?
+  weightKg        String?
+  dentalHistory   String?
+  treatmentDone   String?
+  estimateAmount  Int?
+  consentGiven    Boolean  @default(false)
+  consentNotes    String?
+  patientSignature String?
+  guardianSignature String?
+  consentSignedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@index([patientId, visitDate])
 }
@@ -100,19 +115,22 @@ model DentalChartEntry {
   id          Int      @id @default(autoincrement())
   patientId   Int
   toothNumber String
+  visitDate   DateTime @default(now())
   condition   String   @default("HEALTHY")
   notes       String?
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
   patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@unique([patientId, toothNumber])
+  @@unique([patientId, toothNumber, visitDate])
+  @@index([patientId, visitDate])
   @@index([patientId, condition])
 }
 
 model TreatmentPlan {
   id            Int      @id @default(autoincrement())
   patientId     Int
+  visitDate     DateTime?
   title         String
   status        String   @default("Proposed")
   estimatedCost Int?
@@ -129,6 +147,7 @@ model TreatmentPlan {
   selectedTeeth TreatmentPlanTooth[]
 
   @@index([patientId, status])
+  @@index([patientId, visitDate])
   @@index([serviceId])
 }
 
@@ -178,6 +197,7 @@ model Clinic {
   inventoryItems InventoryItem[]
   labCases       LabCase[]
   launchChecklist ClinicLaunchChecklist?
+  intakeRequests   PatientIntakeRequest[]
 }
 
 model User {
@@ -419,4 +439,39 @@ model ClinicLaunchChecklist {
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
   clinic                     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+model PatientIntakeRequest {
+  id                Int       @id @default(autoincrement())
+  clinicId          Int
+  patientId         Int
+  token             String    @unique
+  status            String    @default("CREATED")
+  expiresAt         DateTime
+  sentAt            DateTime?
+  openedAt          DateTime?
+  completedAt       DateTime?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  medicalHistory    String?
+  drugAllergies     String?
+  medications       String?
+  otherHistory      String?
+  bloodPressure     String?
+  weightKg          String?
+  dentalHistory     String?
+  consentGiven      Boolean   @default(false)
+  consentNotes      String?
+  patientSignature  String?
+  guardianSignature String?
+  treatmentDone     String?
+  estimateAmount    Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  clinic            Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient           Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, status, createdAt])
+  @@index([patientId, createdAt])
+  @@index([expiresAt])
 }
