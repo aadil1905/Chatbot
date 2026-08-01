@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 import PatientForm from "@/components/patients/PatientForm";
 import PatientMedicalEditForm from "@/components/patients/PatientMedicalEditForm";
 
 export default async function EditPatientPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
   const { id } = await params;
-  const patient = await prisma.patient.findUnique({
-    where: { id: Number(id) },
+  const patient = await prisma.patient.findFirst({
+    where: { id: Number(id), clinicId: user.clinicId },
     include: { clinicalRecords: { orderBy: { updatedAt: "desc" }, take: 1 } },
   });
   if (!patient) notFound();

@@ -3,17 +3,19 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import PaymentForm from "@/components/billing/PaymentForm";
 import SendInvoiceWhatsAppButton from "@/components/billing/SendInvoiceWhatsAppButton";
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
   const { id } = await params;
   const invoiceId = Number(id);
   if (!Number.isInteger(invoiceId)) notFound();
 
   const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId },
+    where: { id: invoiceId, patient: { clinicId: user.clinicId } },
     include: {
       patient: true,
       treatmentPlan: { include: { selectedTeeth: { orderBy: { toothNumber: "asc" } } } },

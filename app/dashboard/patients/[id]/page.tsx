@@ -15,6 +15,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusBadge from "@/components/appointments/StatusBadge";
 import DentalChartSummary from "@/components/clinical/DentalChartSummary";
@@ -108,11 +109,12 @@ export default async function PatientPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ visit?: string }>;
 }) {
+  const user = await requireUser();
   const { id } = await params;
   const { visit } = await searchParams;
 
-  const patient = await prisma.patient.findUnique({
-    where: { id: Number(id) },
+  const patient = await prisma.patient.findFirst({
+    where: { id: Number(id), clinicId: user.clinicId },
     include: {
       appointments: {
         orderBy: [{ appointmentDate: "desc" }, { appointmentTime: "desc" }],
