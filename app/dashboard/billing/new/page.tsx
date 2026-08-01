@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import InvoiceForm from "@/components/billing/InvoiceForm";
+import PageIntro from "@/components/dashboard/PageIntro";
 import { requireUser } from "@/lib/auth";
 
 const appointmentSelect = {
@@ -38,11 +39,7 @@ export default async function NewInvoicePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">Billing</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">New invoice</h1>
-        <p className="mt-1 text-muted-foreground">Create a bill against the patient’s completed appointment date.</p>
-      </div>
+      <PageIntro eyebrow="Billing" title="New invoice" description="Create a bill against the patient’s completed appointment date." />
       <InvoiceForm patients={patients} plans={plans} />
     </div>
   );

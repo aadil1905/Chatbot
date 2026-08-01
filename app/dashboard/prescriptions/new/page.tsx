@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import PrescriptionForm from "@/components/clinical/PrescriptionForm";
+import PageIntro from "@/components/dashboard/PageIntro";
 
 const appointmentSelect = {
   id: true,
@@ -32,11 +33,7 @@ export default async function NewPrescriptionPage({ searchParams }: { searchPara
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">Prescriptions</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">New prescription</h1>
-        <p className="mt-1 text-muted-foreground">Save medicines against the patient’s completed appointment date.</p>
-      </div>
+      <PageIntro eyebrow="Prescriptions" title="New prescription" description="Save medicines against the patient’s completed appointment date." />
       <PrescriptionForm patients={patients} initialPatientId={patientId ? Number(patientId) : undefined} />
     </div>
   );

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import TreatmentPlanForm from "@/components/clinical/TreatmentPlanForm";
+import PageIntro from "@/components/dashboard/PageIntro";
 
 const appointmentSelect = {
   id: true,
@@ -38,11 +39,7 @@ export default async function NewTreatmentPlanPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">Treatment planning</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">New treatment plan</h1>
-        <p className="mt-1 text-muted-foreground">Attach the plan and cost to a completed appointment date.</p>
-      </div>
+      <PageIntro eyebrow="Treatment planning" title="New treatment plan" description="Attach the plan and cost to a completed appointment date." />
       <TreatmentPlanForm patients={patients} services={services} />
     </div>
   );
