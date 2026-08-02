@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import PatientTableActions from "@/components/patients/PatientTableActions";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 
 const PAGE_SIZE = 10;
 
@@ -14,7 +14,7 @@ export default async function PatientsPage({
 }: {
   searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requirePermission("managePatients");
   const { search = "", page: rawPage = "1" } = await searchParams;
   const page = Math.max(1, Number(rawPage) || 1);
   const query = search.trim();
@@ -52,12 +52,22 @@ export default async function PatientsPage({
     <div className="dashboard-list-page mx-auto max-w-7xl space-y-6">
       <header className="dashboard-page-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Patients</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Patient workspace</p>
+          <h1 className="mt-2 text-3xl font-bold">Patients</h1>
           <p className="mt-1 text-muted-foreground">
-            Completed appointment patients and full clinical history.
+            One place for care, communications, treatment plans, and revenue history.
           </p>
         </div>
+        <Link href="/dashboard/patients/new" className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90">
+          <Plus className="size-4" /> Add patient
+        </Link>
       </header>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-sm font-medium text-muted-foreground">Patient records</p><p className="mt-1 text-2xl font-bold">{total}</p></div>
+        <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-sm font-medium text-muted-foreground">Current view</p><p className="mt-1 text-2xl font-bold">{patients.length}</p></div>
+        <div className="rounded-2xl border bg-primary/[0.04] p-4 shadow-sm"><p className="flex items-center gap-2 text-sm font-medium text-primary"><Users className="size-4" /> Patient 360</p><p className="mt-1 text-sm text-muted-foreground">Open a record to act without changing modules.</p></div>
+      </section>
 
       <form className="flex max-w-xl gap-2">
         <label className="relative flex-1">

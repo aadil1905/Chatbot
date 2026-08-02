@@ -13,9 +13,9 @@ const appointmentSelect = {
   status: true,
 };
 
-export default async function NewPrescriptionPage({ searchParams }: { searchParams: Promise<{ patientId?: string }> }) {
+export default async function NewPrescriptionPage({ searchParams }: { searchParams: Promise<{ patientId?: string; visit?: string }> }) {
   const user = await requireUser();
-  const { patientId } = await searchParams;
+  const { patientId, visit } = await searchParams;
   const patients = await prisma.patient.findMany({
     where: { clinicId: user.clinicId },
     select: {
@@ -34,7 +34,7 @@ export default async function NewPrescriptionPage({ searchParams }: { searchPara
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageIntro eyebrow="Prescriptions" title="New prescription" description="Save medicines against the patient’s completed appointment date." />
-      <PrescriptionForm patients={patients} initialPatientId={patientId ? Number(patientId) : undefined} />
+      <PrescriptionForm patients={patients} initialPatientId={patientId ? Number(patientId) : undefined} initialVisit={visit} />
     </div>
   );
 }

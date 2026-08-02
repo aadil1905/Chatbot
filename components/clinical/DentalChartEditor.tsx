@@ -2,7 +2,7 @@
 
 import { ScanLine, Sparkles, Stethoscope } from "lucide-react";
 import { useMemo, useState } from "react";
-import { saveDentalChartEntryAction } from "@/app/dashboard/clinical-workspace/actions";
+import { saveDentalChartEntriesAction } from "@/app/dashboard/clinical-workspace/actions";
 
 type Entry = { toothNumber: string; condition: string; notes: string | null };
 type View = "chart" | "scan" | "insights";
@@ -31,8 +31,8 @@ const conditionClasses: Record<string, string> = {
   WATCH: "border-orange-200 bg-orange-50 text-orange-700",
 };
 
-function ToothRow({ title, teeth, selectedTooth, entries, onSelect }: {
-  title: string; teeth: string[]; selectedTooth: string; entries: Map<string, Entry>; onSelect: (tooth: string) => void;
+function ToothRow({ title, teeth, selectedTeeth, entries, onSelect }: {
+  title: string; teeth: string[]; selectedTeeth: string[]; entries: Map<string, Entry>; onSelect: (tooth: string, additive: boolean) => void;
 }) {
   return <div>
     <div className="mb-2 flex items-center justify-between gap-3">
@@ -43,8 +43,8 @@ function ToothRow({ title, teeth, selectedTooth, entries, onSelect }: {
       {teeth.map((tooth) => {
         const entry = entries.get(tooth);
         const condition = entry?.condition || "HEALTHY";
-        const selected = selectedTooth === tooth;
-        return <button key={tooth} type="button" onClick={() => onSelect(tooth)}
+        const selected = selectedTeeth.includes(tooth);
+        return <button key={tooth} type="button" onClick={(event) => onSelect(tooth, event.ctrlKey || event.metaKey)}
           className={`inline-flex min-h-[72px] min-w-0 flex-col items-center justify-center rounded-xl border px-1 py-2 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${conditionClasses[condition] || conditionClasses.HEALTHY} ${selected ? "ring-2 ring-violet-600 ring-offset-2" : ""}`}
           aria-label={`Tooth ${tooth}, ${conditionLabels[condition] || "Healthy"}`}>
           <span className="w-full text-center text-sm font-bold leading-none">{tooth}</span>
@@ -61,6 +61,7 @@ function SummaryCard({ label, value, tone = "text-slate-900" }: { label: string;
 
 export default function DentalChartEditor({ patientId, entries, visitDate }: { patientId: number; entries: Entry[]; visitDate: string }) {
   const [selectedTooth, setSelectedTooth] = useState(entries[0]?.toothNumber || "18");
+  const [selectedTeeth, setSelectedTeeth] = useState<string[]>([entries[0]?.toothNumber || "18"]);
   const [view, setView] = useState<View>("chart");
   const [scanRun, setScanRun] = useState(false);
   const entryMap = useMemo(() => new Map(entries.map((entry) => [entry.toothNumber, entry])), [entries]);
@@ -70,7 +71,11 @@ export default function DentalChartEditor({ patientId, entries, visitDate }: { p
   const needsReview = values.filter((entry) => ["CARIES", "WATCH", "ROOT_CANAL"].includes(entry.condition)).length;
   const completedCare = values.filter((entry) => ["FILLING", "CROWN", "ROOT_CANAL", "IMPLANT"].includes(entry.condition)).length;
 
-  const selectTooth = (tooth: string) => { setSelectedTooth(tooth); setView("chart"); };
+  const selectTooth = (tooth: string, additive: boolean) => {
+    setSelectedTooth(tooth);
+    setSelectedTeeth((current) => additive ? (current.includes(tooth) ? current.filter((item) => item !== tooth) : [...current, tooth]) : [tooth]);
+    setView("chart");
+  };
   const tabs: Array<{ id: View; label: string; icon: typeof Stethoscope }> = [
     { id: "chart", label: "Chart", icon: Stethoscope }, { id: "scan", label: "Scan", icon: ScanLine }, { id: "insights", label: "Insights", icon: Sparkles },
   ];
@@ -90,11 +95,11 @@ export default function DentalChartEditor({ patientId, entries, visitDate }: { p
       {view === "chart" && <>
         <div className="mt-5 flex flex-wrap gap-2">{Object.entries(conditionLabels).map(([key, label]) => <span key={key} className={`rounded-full border px-2.5 py-1 text-xs font-medium ${conditionClasses[key]}`}>{label}</span>)}</div>
         <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
-          <ToothRow title="Upper jaw" teeth={upperTeeth} selectedTooth={selectedTooth} entries={entryMap} onSelect={selectTooth} />
+          <ToothRow title="Upper jaw" teeth={upperTeeth} selectedTeeth={selectedTeeth} entries={entryMap} onSelect={selectTooth} />
           <div className="my-6 border-t border-dashed border-slate-200" />
-          <ToothRow title="Lower jaw" teeth={lowerTeeth} selectedTooth={selectedTooth} entries={entryMap} onSelect={selectTooth} />
+          <ToothRow title="Lower jaw" teeth={lowerTeeth} selectedTeeth={selectedTeeth} entries={entryMap} onSelect={selectTooth} />
         </div>
-        <p className="mt-4 text-center text-xs text-slate-500">The tooth number and condition indicator are centered in every tile for quick review.</p>
+        <p className="mt-4 text-center text-xs text-slate-500">Ctrl/Cmd + click adds or removes teeth from the selection. A normal click selects one tooth.</p>
       </>}
 
       {view === "scan" && <div className="mt-6 rounded-2xl border border-sky-100 bg-sky-50/60 p-5">
@@ -114,14 +119,14 @@ export default function DentalChartEditor({ patientId, entries, visitDate }: { p
       </div>}
     </section>
 
-    <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><h2 className="text-xl font-bold text-slate-900">Tooth {selectedTooth}</h2><p className="mt-1 text-sm text-slate-500">Update this tooth for the selected visit.</p>
+    <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><h2 className="text-xl font-bold text-slate-900">{selectedTeeth.length} selected tooth{selectedTeeth.length === 1 ? "" : "s"}</h2><p className="mt-1 text-sm text-slate-500">Ctrl/Cmd + click teeth, then apply one condition and note to all selected teeth.</p>
       <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
         Saving under visit date <span className="font-bold">{visitDate}</span>. To save another visit, change the date above first.
       </div>
-      <form action={saveDentalChartEntryAction} className="mt-6 space-y-4"><input type="hidden" name="patientId" value={patientId} /><input type="hidden" name="toothNumber" value={selectedTooth} /><input type="hidden" name="visitDate" value={visitDate} />
+      <form action={saveDentalChartEntriesAction} className="mt-6 space-y-4"><input type="hidden" name="patientId" value={patientId} /><input type="hidden" name="toothNumbers" value={selectedTeeth.join(",")} /><input type="hidden" name="visitDate" value={visitDate} />
         <label className="block text-sm font-semibold text-slate-700">Condition<select name="condition" defaultValue={selectedCondition} key={`${selectedTooth}-${selectedCondition}`} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100">{Object.entries(conditionLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <label className="block text-sm font-semibold text-slate-700">Clinical note<textarea name="notes" defaultValue={selectedEntry?.notes || ""} key={`${selectedTooth}-${selectedEntry?.notes || ""}`} placeholder="Finding, material, advice, or planned treatment" className="mt-2 min-h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100" /></label>
-        <button type="submit" className="w-full rounded-xl bg-sky-700 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-sky-800">Save tooth entry</button>
+        <button type="submit" className="w-full rounded-xl bg-sky-700 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-sky-800">Save selected teeth</button>
       </form>
     </aside>
   </div>;

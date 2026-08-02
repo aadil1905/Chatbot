@@ -37,75 +37,56 @@ function localDayRange(dayKey: string) {
 }
 
 export async function saveDentalChartEntryAction(formData: FormData) {
+  formData.set("toothNumbers", String(formData.get("toothNumber") || ""));
+  await saveDentalChartEntriesAction(formData);
+}
+
+export async function saveDentalChartEntriesAction(formData: FormData) {
   await requireUser();
   const patientId = Number(formData.get("patientId"));
-  const toothNumber = String(formData.get("toothNumber") || "");
+  const toothNumbers = Array.from(new Set(String(formData.get("toothNumbers") || "").split(",").filter(Boolean)));
   const condition = String(formData.get("condition") || "HEALTHY");
   const notes = String(formData.get("notes") || "").trim() || null;
   const visitDateInput = String(formData.get("visitDate") || "").trim();
   if (
     !Number.isInteger(patientId) ||
-    !toothNumber ||
+    toothNumbers.length === 0 ||
     !conditions.includes(condition) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(visitDateInput)
   ) {
     return;
   }
 
-  const completedAppointments = await prisma.appointment.findMany({
-    where: { patientId, status: "Completed" },
+  const appointmentForVisit = await prisma.appointment.findFirst({
+    where: { patientId, status: "Completed", appointmentDate: { gte: localDayRange(visitDateInput).start, lte: localDayRange(visitDateInput).end } },
     select: { appointmentDate: true },
   });
-  const appointmentForVisit = completedAppointments.find(
-    (appointment) => dateKey(appointment.appointmentDate) === visitDateInput,
-  );
   if (!appointmentForVisit) return;
 
   const { start: visitStart, end: visitEnd } = localDayRange(visitDateInput);
   const visitDate = appointmentForVisit.appointmentDate;
 
-  const existingChartEntry = await prisma.dentalChartEntry.findFirst({
+  const [existingChartEntries, existingRecords] = await Promise.all([
+    prisma.dentalChartEntry.findMany({ where: { patientId, toothNumber: { in: toothNumbers }, visitDate: { gte: visitStart, lte: visitEnd } } }),
+    prisma.clinicalRecord.findMany({
     where: {
       patientId,
-      toothNumber,
       visitDate: { gte: visitStart, lte: visitEnd },
     },
-  });
-
-  if (existingChartEntry) {
-    await prisma.dentalChartEntry.update({
-      where: { id: existingChartEntry.id },
-      data: { condition, notes, visitDate },
-    });
-  } else {
-    await prisma.dentalChartEntry.create({
-      data: { patientId, toothNumber, visitDate, condition, notes },
-    });
-  }
-  const chiefComplaint = `Tooth ${toothNumber} - ${conditionLabels[condition]}`;
-  const existingRecord = await prisma.clinicalRecord.findFirst({
-    where: {
-      patientId,
-      chiefComplaint: { startsWith: `Tooth ${toothNumber} -` },
-      visitDate: { gte: visitStart, lte: visitEnd },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-  const recordData = {
-      patientId,
-      visitDate,
-      chiefComplaint,
-      diagnosis: conditionLabels[condition],
-      clinicalNotes: notes || `Updated tooth ${toothNumber} in clinical workspace.`,
-  };
-  if (existingRecord) {
-    await prisma.clinicalRecord.update({
-      where: { id: existingRecord.id },
-      data: recordData,
-    });
-  } else {
-    await prisma.clinicalRecord.create({ data: recordData });
-  }
+  }),
+  ]);
+  const chartByTooth = new Map(existingChartEntries.map((entry) => [entry.toothNumber, entry]));
+  const recordByTooth = new Map(existingRecords.map((record) => [record.chiefComplaint.match(/^Tooth (\d+) -/)?.[1], record]));
+  await prisma.$transaction(toothNumbers.flatMap((toothNumber) => {
+    const chartData = { condition, notes, visitDate };
+    const recordData = { patientId, visitDate, chiefComplaint: `Tooth ${toothNumber} - ${conditionLabels[condition]}`, diagnosis: conditionLabels[condition], clinicalNotes: notes || `Updated tooth ${toothNumber} in clinical workspace.` };
+    const existingChart = chartByTooth.get(toothNumber);
+    const existingRecord = recordByTooth.get(toothNumber);
+    return [
+      existingChart ? prisma.dentalChartEntry.update({ where: { id: existingChart.id }, data: chartData }) : prisma.dentalChartEntry.create({ data: { patientId, toothNumber, ...chartData } }),
+      existingRecord ? prisma.clinicalRecord.update({ where: { id: existingRecord.id }, data: recordData }) : prisma.clinicalRecord.create({ data: recordData }),
+    ];
+  }));
   revalidatePath(`/dashboard/clinical-workspace/${patientId}`);
   revalidatePath(`/dashboard/patients/${patientId}`);
 }

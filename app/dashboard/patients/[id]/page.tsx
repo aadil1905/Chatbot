@@ -13,6 +13,8 @@ import {
   Pill,
   Stethoscope,
   UserRound,
+  CalendarPlus,
+  ReceiptText,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
@@ -133,6 +135,11 @@ export default async function PatientPage({
       prescriptions: {
         orderBy: { prescribedOn: "desc" },
       },
+      intakeRequests: {
+        where: { status: { in: ["COMPLETED", "REVIEWED"] }, consentGiven: true, patientSignature: { not: null } },
+        orderBy: { completedAt: "desc" },
+        take: 1,
+      },
     },
   });
 
@@ -159,6 +166,7 @@ export default async function PatientPage({
   const visitConsentRecord =
     visitRecords.find((record) => record.consentGiven || record.consentSignedAt) ??
     visitRecords[0];
+  const signedIntake = patient.intakeRequests[0];
   const visitPrescriptions = selectedVisit
     ? patient.prescriptions.filter((prescription) =>
         sameVisit(prescription.prescribedOn, selectedVisit),
@@ -170,6 +178,7 @@ export default async function PatientPage({
   const relatedInvoices = selectedVisit
     ? patient.invoices.filter((invoice) => sameVisit(invoice.issueDate, selectedVisit))
     : patient.invoices;
+  const openInvoice = patient.invoices.find((invoice) => invoice.payments.reduce((paid, payment) => paid + payment.amount, 0) < invoice.totalAmount);
   const selectedRange = selectedVisit ? localDayRange(selectedVisit) : null;
   const visitDentalChartEntries = selectedRange
     ? await prisma.dentalChartEntry.findMany({
@@ -220,6 +229,21 @@ export default async function PatientPage({
                 )}
               </div>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Link href={`/dashboard/appointments/new?patientId=${patient.id}&returnTo=${encodeURIComponent(`/dashboard/patients/${patient.id}${selectedVisit ? `?visit=${selectedVisit}` : ""}`)}`} className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90">
+              <CalendarPlus className="size-4" /> Appointment
+            </Link>
+            <Link href={`/dashboard/clinical-workspace/${patient.id}?visitDate=${selectedVisit ?? ""}&fromPatient=1`} className="inline-flex items-center gap-1.5 rounded-xl border bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-primary/30 hover:bg-primary/5">
+              <Stethoscope className="size-4" /> Clinical chart
+            </Link>
+            {signedIntake ? <Link href={`/dashboard/patients/${patient.id}/case-paper`} className="inline-flex items-center gap-1.5 rounded-xl border bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-primary/30 hover:bg-primary/5"><FileText className="size-4" /> View case paper</Link> : null}
+            <Link href={`/dashboard/treatment-plans/new?patientId=${patient.id}${selectedVisit ? `&visitDate=${selectedVisit}` : ""}`} className="inline-flex items-center gap-1.5 rounded-xl border bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-primary/30 hover:bg-primary/5">
+              <ClipboardList className="size-4" /> Plan
+            </Link>
+            <Link href={`/dashboard/billing/new?patientId=${patient.id}&fromPatient=1${selectedVisit ? `&visit=${selectedVisit}` : ""}`} className="inline-flex items-center gap-1.5 rounded-xl border bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-primary/30 hover:bg-primary/5">
+              <ReceiptText className="size-4" /> Create new invoice
+            </Link>
           </div>
         </div>
       </section>
@@ -317,9 +341,10 @@ export default async function PatientPage({
 
         <Card className="border-slate-200/80 shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Stethoscope className="size-5 text-primary" /> Clinical workspace
-            </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2"><Stethoscope className="size-5 text-primary" /> Clinical workspace</CardTitle>
+              <div className="flex gap-2"><Link href={`/dashboard/clinical-records/new?patientId=${patient.id}`} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"><Pencil className="size-3.5" /> Create new</Link><Link href={`/dashboard/clinical-workspace/${patient.id}?visitDate=${selectedVisit ?? ""}&fromPatient=1`} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5">Continue workspace</Link></div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <DentalChartSummary entries={visitDentalChartEntries} />
@@ -483,12 +508,7 @@ export default async function PatientPage({
             <CardTitle className="flex items-center gap-2">
               <ClipboardList className="size-5 text-primary" /> Treatment plan and cost
             </CardTitle>
-            <Link
-              href={`/dashboard/treatment-plans/new?patientId=${patient.id}${selectedVisit ? `&visitDate=${selectedVisit}` : ""}`}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"
-            >
-              <Pencil className="size-3.5" /> Add / edit
-            </Link>
+            <div className="flex shrink-0 gap-2"><Link href={`/dashboard/treatment-plans/new?patientId=${patient.id}${selectedVisit ? `&visitDate=${selectedVisit}` : ""}`} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"><Pencil className="size-3.5" /> Create new</Link>{relatedPlans[0] ? <Link href={`/dashboard/treatment-plans/${relatedPlans[0].id}/edit`} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5">Continue plan</Link> : null}</div>
           </CardHeader>
           <CardContent>
             {relatedPlans.length === 0 ? (
@@ -527,12 +547,7 @@ export default async function PatientPage({
             <CardTitle className="flex items-center gap-2">
               <Pill className="size-5 text-primary" /> Prescription
             </CardTitle>
-            <Link
-              href={`/dashboard/prescriptions/new?patientId=${patient.id}`}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"
-            >
-              <Pencil className="size-3.5" /> Add / edit
-            </Link>
+            <div className="flex shrink-0 gap-2"><Link href={`/dashboard/prescriptions/new?patientId=${patient.id}${selectedVisit ? `&visit=${selectedVisit}` : ""}`} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"><Pencil className="size-3.5" /> Create new</Link>{visitPrescriptions[0] ? <Link href={`/dashboard/prescriptions/${visitPrescriptions[0].id}/edit`} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5">Continue prescription</Link> : null}</div>
           </CardHeader>
           <CardContent>
             {visitPrescriptions.length === 0 ? (
@@ -565,10 +580,10 @@ export default async function PatientPage({
               <IndianRupee className="size-5 text-primary" /> Invoice and payments
             </CardTitle>
             <Link
-              href={`/dashboard/billing/new?patientId=${patient.id}`}
+              href={`/dashboard/billing/new?patientId=${patient.id}&fromPatient=1${selectedVisit ? `&visit=${selectedVisit}` : ""}`}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"
             >
-              <Pencil className="size-3.5" /> Add / edit
+              <Pencil className="size-3.5" /> Create new invoice
             </Link>
           </CardHeader>
         <CardContent className="space-y-5">
@@ -586,6 +601,8 @@ export default async function PatientPage({
               <p className="mt-1 text-2xl font-bold text-amber-700">{money(outstanding)}</p>
             </div>
           </div>
+
+          {openInvoice ? <Link href={`/dashboard/billing/${openInvoice.id}?fromPatient=${patient.id}${selectedVisit ? `&visit=${selectedVisit}` : ""}`} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"><span><span className="font-bold">Open patient balance:</span> {money(openInvoice.totalAmount - openInvoice.payments.reduce((sum, payment) => sum + payment.amount, 0))} on {openInvoice.invoiceNumber}</span><span className="font-semibold">Continue payment →</span></Link> : null}
 
           {relatedInvoices.length === 0 ? (
             <EmptyState>No invoice is saved for this appointment date.</EmptyState>
@@ -609,11 +626,12 @@ export default async function PatientPage({
                       0,
                     );
                     const invoiceOutstanding = invoice.totalAmount - paid;
+                    const paymentStatus = invoiceOutstanding === 0 ? "Paid" : invoice.dueDate && invoice.dueDate < new Date() ? "Overdue" : paid > 0 ? "Partially Paid" : "Unpaid";
                     return (
                       <tr key={invoice.id} className="border-t">
                         <td className="p-4">
-                          <p className="font-semibold">{invoice.invoiceNumber}</p>
-                          <p className="text-muted-foreground">{invoice.status}</p>
+                          <Link href={`/dashboard/billing/${invoice.id}?fromPatient=${patient.id}${selectedVisit ? `&visit=${selectedVisit}` : ""}`} className="font-semibold text-primary hover:underline">{invoice.invoiceNumber}</Link>
+                          <p className={paymentStatus === "Overdue" ? "text-rose-700" : "text-muted-foreground"}>{paymentStatus}</p>
                         </td>
                         <td className="p-4">{invoice.treatmentPlan?.title || "General"}</td>
                         <td className="p-4">{money(invoice.totalAmount)}</td>

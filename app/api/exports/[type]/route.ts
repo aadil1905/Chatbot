@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toCsv } from "@/lib/csv";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ function download(csv: string, name: string) {
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ type: string }> }) {
-  const user = await requireUser();
+  const user = await requirePermission("exportData");
   const { type } = await context.params;
   const stamp = new Date().toISOString().slice(0, 10);
   if (type === "appointments") {

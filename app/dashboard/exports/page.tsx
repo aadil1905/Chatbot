@@ -1,4 +1,5 @@
 import { Download, FileSpreadsheet, ShieldCheck } from "lucide-react";
+import { requirePermission } from "@/lib/permissions";
 
 const exports = [
   { name: "Appointments", description: "Schedule, treatments, statuses, sources, and reminder history.", href: "/api/exports/appointments", tone: "bg-blue-50 text-blue-700", accent: "border-blue-100" },
@@ -6,6 +7,7 @@ const exports = [
   { name: "Billing", description: "Invoices, payment totals, outstanding balances, and invoice status.", href: "/api/exports/billing", tone: "bg-emerald-50 text-emerald-700", accent: "border-emerald-100" },
 ];
 
-export default function ExportsPage() {
+export default async function ExportsPage() {
+  await requirePermission("exportData");
   return <div className="mx-auto max-w-[1240px] space-y-6"><header className="rounded-2xl border border-border bg-card px-6 py-7 shadow-sm sm:px-8"><p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Clinic data</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Data exports</h1><p className="mt-2 max-w-2xl text-muted-foreground">Download the information your clinic needs in clean CSV files, ready for Excel, Google Sheets, and accounting tools.</p></header><section className="exports-grid">{exports.map((item) => <article key={item.name} className={`flex min-h-[270px] flex-col rounded-2xl border ${item.accent} bg-card p-6 shadow-sm`}><div className={`grid size-11 place-items-center rounded-xl ${item.tone}`}><FileSpreadsheet className="size-5" /></div><h2 className="mt-5 text-xl font-bold tracking-tight">{item.name}</h2><p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">{item.description}</p><a href={item.href} className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Download className="size-4" />Download CSV</a></article>)}</section><section className="flex gap-4 rounded-2xl border border-cyan-100 bg-cyan-50/60 p-5 text-sm text-cyan-950"><ShieldCheck className="mt-0.5 size-5 shrink-0 text-cyan-700" /><div><p className="font-semibold">Downloads are generated when you request them</p><p className="mt-1 text-cyan-900/80">No new database table is created. Your CSV files contain only the information already saved in DentalAI.</p></div></section></div>;
 }

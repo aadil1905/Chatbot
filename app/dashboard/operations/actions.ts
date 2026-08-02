@@ -15,8 +15,11 @@ export async function addInventoryItemAction(formData: FormData) {
   const quantity = Math.max(0, Number(formData.get("quantity")) || 0);
   const reorderLevel = Math.max(0, Number(formData.get("reorderLevel")) || 0);
   const cost = String(formData.get("costPerUnit") || "").trim();
+  const supplier = String(formData.get("supplier") || "").trim() || null;
+  const batchNumber = String(formData.get("batchNumber") || "").trim() || null;
+  const expiryValue = String(formData.get("expiryDate") || "");
   if (!name) return;
-  await prisma.inventoryItem.upsert({ where: { clinicId_name: { clinicId: user.clinicId, name } }, create: { clinicId: user.clinicId, name, category, unit, quantity, reorderLevel, costPerUnit: cost ? Math.max(0, Number(cost)) : null }, update: { category, unit, quantity, reorderLevel, costPerUnit: cost ? Math.max(0, Number(cost)) : null, active: true } });
+  await prisma.inventoryItem.upsert({ where: { clinicId_name: { clinicId: user.clinicId, name } }, create: { clinicId: user.clinicId, name, category, unit, quantity, reorderLevel, costPerUnit: cost ? Math.max(0, Number(cost)) : null, supplier, batchNumber, expiryDate: expiryValue ? new Date(expiryValue) : null }, update: { category, unit, quantity, reorderLevel, costPerUnit: cost ? Math.max(0, Number(cost)) : null, supplier, batchNumber, expiryDate: expiryValue ? new Date(expiryValue) : null, active: true } });
   revalidatePath(operationsPath);
 }
 
@@ -27,7 +30,40 @@ export async function adjustInventoryAction(formData: FormData) {
   if (!Number.isInteger(id) || adjustment === 0) return;
   const item = await prisma.inventoryItem.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!item) return;
-  await prisma.inventoryItem.update({ where: { id }, data: { quantity: Math.max(0, item.quantity + adjustment) } });
+  const quantityChange = Math.max(-item.quantity, adjustment);
+  await prisma.$transaction([
+    prisma.inventoryItem.update({ where: { id }, data: { quantity: item.quantity + quantityChange } }),
+    prisma.inventoryMovement.create({ data: { inventoryItemId: id, clinicId: user.clinicId, quantityChange, type: "ADJUSTMENT", recordedBy: user.fullName } }),
+  ]);
+  revalidatePath(operationsPath);
+}
+
+export async function recordInventoryUsageAction(formData: FormData) {
+  const user = await requireUser();
+  const id = Number(formData.get("id"));
+  const quantity = Math.max(1, Math.trunc(Number(formData.get("quantity")) || 0));
+  const patientId = Number(formData.get("patientId")) || null;
+  const treatmentPlanId = Number(formData.get("treatmentPlanId")) || null;
+  const notes = String(formData.get("notes") || "").trim() || null;
+  const item = Number.isInteger(id) ? await prisma.inventoryItem.findFirst({ where: { id, clinicId: user.clinicId } }) : null;
+  if (!item || quantity > item.quantity) return;
+  if (patientId && !await prisma.patient.findFirst({ where: { id: patientId, clinicId: user.clinicId }, select: { id: true } })) return;
+  await prisma.$transaction([
+    prisma.inventoryItem.update({ where: { id }, data: { quantity: item.quantity - quantity } }),
+    prisma.inventoryMovement.create({ data: { inventoryItemId: id, clinicId: user.clinicId, quantityChange: -quantity, type: "TREATMENT_USAGE", patientId, treatmentPlanId, notes, recordedBy: user.fullName } }),
+  ]);
+  revalidatePath(operationsPath);
+}
+
+export async function createPurchaseOrderAction(formData: FormData) {
+  const user = await requireUser();
+  const inventoryItemId = Number(formData.get("inventoryItemId"));
+  const quantity = Math.max(1, Math.trunc(Number(formData.get("quantity")) || 0));
+  const supplier = String(formData.get("supplier") || "").trim();
+  const notes = String(formData.get("notes") || "").trim() || null;
+  const item = Number.isInteger(inventoryItemId) ? await prisma.inventoryItem.findFirst({ where: { id: inventoryItemId, clinicId: user.clinicId }, select: { id: true } }) : null;
+  if (!item || !supplier) return;
+  await prisma.purchaseOrder.create({ data: { clinicId: user.clinicId, supplier, notes, createdBy: user.fullName, items: { create: { inventoryItemId, quantity } } } });
   revalidatePath(operationsPath);
 }
 

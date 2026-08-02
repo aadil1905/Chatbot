@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { treatmentPlanSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 import { findCompletedAppointment, localDate } from "@/lib/clinical-appointments";
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageClinical");
     if (!user) return response;
     const data = treatmentPlanSchema.parse(await request.json());
     if (!data.visitDate) {
@@ -21,6 +21,11 @@ export async function POST(request: Request) {
     if (data.serviceId) {
       const service = await prisma.clinicService.findFirst({ where: { id: data.serviceId, clinicId: user.clinicId }, select: { id: true } });
       if (!service) return NextResponse.json({ error: "Service not found." }, { status: 404 });
+    }
+    for (const item of data.items) {
+      if (!item.serviceId) continue;
+      const service = await prisma.clinicService.findFirst({ where: { id: item.serviceId, clinicId: user.clinicId }, select: { id: true } });
+      if (!service) return NextResponse.json({ error: "One of the selected services was not found." }, { status: 404 });
     }
     const appointment = await findCompletedAppointment(user.clinicId, patient.id, data.visitDate);
     if (!appointment) {
@@ -43,9 +48,10 @@ export async function POST(request: Request) {
         serviceId: data.serviceId === "" || data.serviceId === undefined ? null : data.serviceId,
         toothNumber: toothNumbers[0] || null,
         unitPrice: price,
-        estimatedCost: price,
+        estimatedCost: data.items.reduce((sum, item) => sum + item.price, 0),
         notes: data.notes || null,
         selectedTeeth: toothNumbers.length ? { create: toothNumbers.map((toothNumber) => ({ toothNumber })) } : undefined,
+        items: { create: data.items.map((item) => ({ serviceId: item.serviceId || null, name: item.name, price: item.price })) },
       },
     });
     return NextResponse.json(plan, { status: 201 });

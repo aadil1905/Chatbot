@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { appointmentSchema } from "@/lib/validations";
 import { ZodError } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { findScheduleConflict } from "@/lib/schedule-conflicts";
 
 type RouteContext = {
   params: Promise<{
@@ -32,7 +33,7 @@ export async function PATCH(
 
     const existingAppointment = await prisma.appointment.findFirst({
       where: { id: appointmentId, clinicId: user.clinicId, archivedAt: null },
-      select: { id: true, patientName: true, phone: true, patientId: true },
+      select: { id: true, patientName: true, phone: true, patientId: true, appointmentDate: true, appointmentTime: true, providerId: true, chairId: true },
     });
 
     if (!existingAppointment) {
@@ -47,6 +48,10 @@ export async function PATCH(
       ? data.phone.replace(/\D/g, "").slice(-10)
       : existingAppointment.phone.replace(/\D/g, "").slice(-10);
     const shouldSavePatient = data.status === "Completed";
+    const providerId = data.providerId === undefined ? existingAppointment.providerId : data.providerId;
+    const chairId = data.chairId === undefined ? existingAppointment.chairId : data.chairId;
+    const conflict = await findScheduleConflict({ clinicId: user.clinicId, appointmentDate: data.appointmentDate ? new Date(data.appointmentDate) : existingAppointment.appointmentDate, appointmentTime: data.appointmentTime ?? existingAppointment.appointmentTime, providerId, chairId, excludeAppointmentId: existingAppointment.id });
+    if (conflict) return NextResponse.json({ error: `${conflict.provider?.name || conflict.chair?.name || "The selected resource"} is already booked at this time for ${conflict.patientName}.` }, { status: 409 });
     const completedPatient = shouldSavePatient
       ? await prisma.patient.upsert({
           where: { clinicId_phone: { clinicId: user.clinicId, phone: nextPhone } },
@@ -92,6 +97,9 @@ export async function PATCH(
           data.notes !== undefined
             ? data.notes
             : undefined,
+
+        providerId,
+        chairId,
 
         patientId: completedPatient?.id,
       },

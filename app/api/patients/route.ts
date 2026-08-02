@@ -36,3 +36,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to create patient." }, { status: 500 });
   }
 }
+
+export async function GET(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+  const phone = new URL(request.url).searchParams.get("phone")?.replace(/\D/g, "").slice(-10) || "";
+  if (phone.length !== 10) return NextResponse.json({ patient: null });
+  const patient = await prisma.patient.findUnique({ where: { clinicId_phone: { clinicId: user.clinicId, phone } }, select: { id: true, fullName: true, phone: true } });
+  return NextResponse.json({ patient });
+}

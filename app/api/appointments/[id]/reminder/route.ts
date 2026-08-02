@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendTextMessage } from "@/lib/whatsapp";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageSchedule");
     if (!user) return response;
     const { id } = await context.params;
     const appointment = await prisma.appointment.findFirst({ where: { id: Number(id), clinicId: user.clinicId } });

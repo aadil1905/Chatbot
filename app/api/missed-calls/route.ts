@@ -11,7 +11,8 @@ function followUpMessage(name: string) {
 
 export async function POST(req: NextRequest) {
   const configuredSecret = process.env.MISSED_CALL_WEBHOOK_SECRET;
-  if (!configuredSecret) return NextResponse.json({ error: "Missed-call webhook is not configured." }, { status: 503 });
+  const configuredClinicId = Number(process.env.MISSED_CALL_CLINIC_ID);
+  if (!configuredSecret || !Number.isInteger(configuredClinicId) || configuredClinicId <= 0) return NextResponse.json({ error: "Missed-call webhook is not configured." }, { status: 503 });
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || req.nextUrl.searchParams.get("token");
   if (token !== configuredSecret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
   const phone = cleanPhone(payload.phone || payload.caller || payload.from || payload.mobile);
   if (phone.length < 10) return NextResponse.json({ error: "Valid phone is required" }, { status: 400 });
 
-  const clinic = await prisma.clinic.findFirst({ orderBy: { id: "asc" } });
+  const clinic = await prisma.clinic.findUnique({ where: { id: configuredClinicId } });
   if (!clinic) return NextResponse.json({ error: "Clinic not configured" }, { status: 503 });
 
   const name = String(payload.callerName || payload.name || "").trim() || `Missed call ${phone.slice(-4)}`;

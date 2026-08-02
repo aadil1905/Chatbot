@@ -4,14 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowRight,
   CheckCircle2,
   ClipboardCopy,
   ExternalLink,
   Loader2,
   MessageCircle,
   RefreshCw,
-  Save,
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -183,43 +181,15 @@ export default function PatientIntakeWizard({ defaultName = "", defaultPhone = "
     toast.success("Secure intake link copied.");
   }
 
-  async function finalize(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!request) return;
-    const data = new FormData(event.currentTarget);
-    setWorking(true);
-    try {
-      const response = await fetch("/api/patient-intake", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: request.id,
-          treatmentDone: String(data.get("treatmentDone") || ""),
-          estimateAmount: String(data.get("estimateAmount") || ""),
-        }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Could not finalize the intake.");
-      toast.success("Patient intake reviewed and saved.");
-      router.push(`/dashboard/patients/${body.patientId}`);
-      router.refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not finalize the intake.");
-    } finally {
-      setWorking(false);
-    }
-  }
-
   const inputClass = "mt-2 h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none focus:border-primary focus:ring-3 focus:ring-primary/10";
-  const textareaClass = "mt-2 min-h-32 w-full rounded-xl border border-input bg-white p-3 text-sm outline-none focus:border-primary focus:ring-3 focus:ring-primary/10";
 
   return (
     <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
       <div className="flex items-center justify-between gap-4 border-b bg-gradient-to-r from-sky-50 to-white px-6 py-5">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-700">Step {step} of 3</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-700">Step {step} of 2</p>
           <h2 className="mt-1 text-xl font-bold">
-            {step === 1 ? "Patient and WhatsApp details" : step === 2 ? "Patient medical form" : "Clinic review and estimate"}
+            {step === 1 ? "Patient and WhatsApp details" : "Patient medical form"}
           </h2>
         </div>
         {step > 1 && (
@@ -267,30 +237,8 @@ export default function PatientIntakeWizard({ defaultName = "", defaultPhone = "
             <a href={request.link} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border bg-white text-sm font-semibold"><ExternalLink className="size-4" /> Open on this device</a>
             <button type="button" onClick={() => refreshStatus(true)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border bg-white text-sm font-semibold"><RefreshCw className="size-4" /> Check status</button>
           </div>
-          <div className="flex justify-end">
-            <button type="button" disabled={request.status !== "COMPLETED"} onClick={() => setStep(3)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40">
-              Continue to estimate <ArrowRight className="size-4" />
-            </button>
-          </div>
+          {request.status === "COMPLETED" && <div className="flex justify-end"><button type="button" onClick={() => router.push(`/dashboard/patients/${request.patientId}`)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white"><CheckCircle2 className="size-4" /> Open patient profile</button></div>}
         </div>
-      )}
-
-      {step === 3 && request && (
-        <form onSubmit={finalize} className="p-6">
-          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
-            <CheckCircle2 className="size-5" /> Patient medical history, consent, and signatures received.
-          </div>
-          <div className="grid gap-5 md:grid-cols-[1fr_240px]">
-            <label className="text-sm font-semibold">Proposed dental treatment<textarea name="treatmentDone" className={textareaClass} placeholder="Treatment discussed or proposed by the clinic" /></label>
-            <label className="text-sm font-semibold">Estimate (₹)<input name="estimateAmount" type="number" min="0" className={inputClass} placeholder="0" /></label>
-          </div>
-          <div className="mt-6 flex justify-end">
-            <button disabled={working} className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white disabled:opacity-60">
-              {working ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              Review and complete intake
-            </button>
-          </div>
-        </form>
       )}
     </div>
   );

@@ -15,18 +15,19 @@ export const appointmentSchema = z.object({
 
   appointmentTime: z.string().min(1, "Appointment time is required"),
 
-  treatment: z.enum(["New Consultation", "Follow up"], {
-    error: "Reason for visit is required",
-  }),
+  treatment: z.string().trim().min(2, "Reason for visit is required").max(120),
 
   status: z.enum([
     "Pending",
     "Confirmed",
     "Completed",
     "Cancelled",
+    "No-show",
   ]),
 
   notes: z.string().optional(),
+  providerId: z.number().int().positive().nullable().optional(),
+  chairId: z.number().int().positive().nullable().optional(),
 });
 
 export type AppointmentFormValues = z.infer<
@@ -75,6 +76,7 @@ export const treatmentPlanSchema = z.object({
   toothNumbers: z.array(z.string().trim().min(1).max(4)).max(32).optional(),
   unitPrice: z.union([z.literal(""), z.coerce.number().int().nonnegative()]).optional(),
   notes: z.string().max(5000).optional(),
+  items: z.array(z.object({ serviceId: z.number().int().positive().nullable().optional(), name: z.string().trim().min(1).max(200), price: z.coerce.number().int().nonnegative() })).min(1, "Add at least one treatment service"),
 });
 
 export const prescriptionSchema = z.object({
@@ -86,12 +88,16 @@ export const prescriptionSchema = z.object({
 });
 
 export const invoiceSchema = z.object({
+  invoiceNumber: z.string().trim().min(1, "Enter an invoice number").max(40),
   patientId: z.coerce.number().int().positive(),
   treatmentPlanId: z.union([z.literal(""), z.coerce.number().int().positive()]).optional(),
   issueDate: isoDate,
   dueDate: z.union([z.literal(""), isoDate]).optional(),
   totalAmount: z.coerce.number().int().positive("Invoice amount must be greater than zero"),
   notes: z.string().max(2000).optional(),
+  amountPaidToday: z.union([z.literal(""), z.coerce.number().int().positive()]).optional(),
+  paymentMethod: z.enum(["Cash", "UPI", "Card", "Bank transfer", "Other"]).optional(),
+  paymentNotes: z.string().max(1000).optional(),
 });
 
 export const paymentSchema = z.object({

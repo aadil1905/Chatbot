@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { invoiceSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 import { findCompletedAppointment, localDate } from "@/lib/clinical-appointments";
 
-function invoiceNumber() {
-  return `INV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
+const MAX_TRANSACTION_ATTEMPTS = 3;
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageBilling");
     if (!user) return response;
     const data = invoiceSchema.parse(await request.json());
     const patient = await prisma.patient.findFirst({ where: { id: data.patientId, clinicId: user.clinicId }, select: { id: true } });
@@ -29,22 +28,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber: invoiceNumber(),
-        patientId: patient.id,
-        treatmentPlanId,
-        issueDate: localDate(data.issueDate),
-        dueDate: data.dueDate ? localDate(data.dueDate) : null,
-        totalAmount: data.totalAmount,
-        notes: data.notes || null,
-      },
-    });
+    const amountPaidToday = typeof data.amountPaidToday === "number" ? data.amountPaidToday : 0;
+    if (amountPaidToday > data.totalAmount) return NextResponse.json({ error: "Today's payment cannot exceed the invoice total." }, { status: 400 });
+    let invoice;
+    for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
+      try {
+        invoice = await prisma.$transaction(async (tx) => {
+          const invoiceNumber = data.invoiceNumber.trim();
+          const created = await tx.invoice.create({ data: { invoiceNumber, patientId: patient.id, treatmentPlanId, issueDate: localDate(data.issueDate), dueDate: data.dueDate ? localDate(data.dueDate) : null, totalAmount: data.totalAmount, status: amountPaidToday === data.totalAmount ? "Paid" : amountPaidToday > 0 ? "Partially Paid" : "Unpaid", notes: data.notes || null } });
+          if (amountPaidToday > 0) await tx.payment.create({ data: { invoiceId: created.id, amount: amountPaidToday, method: data.paymentMethod || "Cash", paidAt: new Date(), notes: data.paymentNotes || null, recordedBy: user.fullName } });
+          return created;
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        break;
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2034" || attempt === MAX_TRANSACTION_ATTEMPTS - 1) throw error;
+      }
+    }
+    if (!invoice) throw new Error("Could not create invoice.");
     return NextResponse.json(invoice, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: "Please check the invoice details.", issues: error.flatten() }, { status: 400 });
     }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return NextResponse.json({ error: "That invoice number already exists. Enter a different number." }, { status: 409 });
     return NextResponse.json({ error: "Could not create invoice." }, { status: 500 });
   }
 }

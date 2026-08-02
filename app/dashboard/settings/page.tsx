@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { createStaffAction, toggleStaffAction, updateClinicAction } from "./actions";
 
 const actionLabels: Record<string, string> = {
@@ -12,8 +11,7 @@ const actionLabels: Record<string, string> = {
 };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const user = await requireUser();
-  if (user.role !== "OWNER") redirect("/dashboard");
+  const user = await requirePermission("manageClinic");
 
   const { error } = await searchParams;
   const [staff, auditLogs] = await Promise.all([

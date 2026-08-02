@@ -13,6 +13,7 @@ Copy the variable names from `.env.example` into the clinic's Vercel project. Se
 - `PHONE_NUMBER_ID`, `WHATSAPP_TOKEN`, `VERIFY_TOKEN` — clinic Meta WhatsApp configuration
 - `AUTH_SECRET` — long random server secret
 - `CRON_SECRET` — long random server secret for protected scheduled jobs
+- `MISSED_CALL_WEBHOOK_SECRET` and `MISSED_CALL_CLINIC_ID` — set both only after a missed-call provider webhook is tested. Leave both unset to keep the automation safely disabled.
 
 ## WhatsApp launch
 
@@ -34,3 +35,7 @@ Copy the variable names from `.env.example` into the clinic's Vercel project. Se
 ## Security
 
 Never send an OpenAI key, Meta token, Supabase connection URL, or Vercel secret to clinic staff over WhatsApp or email. Keep them in the relevant Vercel project only.
+
+## Launch gate
+
+Before selling the clinic deployment, run database migrations, record a partial and then full invoice payment, and confirm the remaining balance in Billing, Patient Profile, and Analytics. Also confirm role permissions, database backups, uptime monitoring, error alerts, and the clinic's WhatsApp flow. Do not enable missed-call automation until its provider mapping has been verified.

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { clinicalRecordSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 import { findCompletedAppointment, localDate } from "@/lib/clinical-appointments";
 
 function optionalText(value?: string) {
@@ -33,7 +33,7 @@ function clinicalRecordData(data: ReturnType<typeof clinicalRecordSchema.parse>)
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageClinical");
     if (!user) return response;
     const data = clinicalRecordSchema.parse(await request.json());
     const patient = await prisma.patient.findFirst({ where: { id: data.patientId, clinicId: user.clinicId }, select: { id: true } });

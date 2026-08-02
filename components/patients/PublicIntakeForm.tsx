@@ -31,7 +31,6 @@ export default function PublicIntakeForm({ token, patientName }: { token: string
           drugAllergies: String(form.get("drugAllergies") || ""),
           medications: String(form.get("medications") || ""),
           otherHistory: String(form.get("otherHistory") || ""),
-          bloodPressure: String(form.get("bloodPressure") || ""),
           weightKg: String(form.get("weightKg") || ""),
           dentalHistory: String(form.get("dentalHistory") || ""),
           consentGiven: form.get("consentGiven") === "on",
@@ -82,10 +81,7 @@ export default function PublicIntakeForm({ token, patientName }: { token: string
           <label className="text-sm font-semibold">Drug allergies<textarea name="drugAllergies" className={textareaClass} placeholder="List allergies and reactions, or write None" /></label>
           <label className="text-sm font-semibold">Current medications<textarea name="medications" className={textareaClass} placeholder="Medicine, dosage, and frequency" /></label>
           <label className="text-sm font-semibold">Other medical history<textarea name="otherHistory" className={textareaClass} placeholder="Other illness, surgery, pregnancy details, or notes" /></label>
-          <div className="grid content-start gap-4 grid-cols-2">
-            <label className="text-sm font-semibold">Blood pressure<input name="bloodPressure" className={inputClass} placeholder="120/80" /></label>
-            <label className="text-sm font-semibold">Weight (kg)<input name="weightKg" className={inputClass} inputMode="decimal" placeholder="62" /></label>
-          </div>
+          <label className="text-sm font-semibold">Weight (kg)<input name="weightKg" className={inputClass} inputMode="decimal" placeholder="62" /></label>
         </div>
         <label className="mt-5 block text-sm font-semibold">Dental history<textarea name="dentalHistory" className={textareaClass} placeholder="Previous dental treatments, concerns, or complications" /></label>
       </section>

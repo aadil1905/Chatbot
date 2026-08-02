@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, CircleCheckBig, LoaderCircle, X } from "lucide-react";
+import { Check, CircleCheckBig, LoaderCircle, UserX, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -100,6 +100,15 @@ export default function AppointmentActions({
         className="h-11 rounded-xl bg-amber-500 px-5 font-bold text-slate-950 hover:bg-amber-600"
       >
         {statusButtonContent("Cancelled", "Cancel", <X className="size-4" />)}
+      </Button>
+
+      <Button
+        onClick={() => updateStatus("No-show")}
+        disabled={pendingStatus !== null}
+        variant="outline"
+        className="h-11 rounded-xl border-rose-200 bg-rose-50 px-5 font-bold text-rose-800 hover:bg-rose-100"
+      >
+        {statusButtonContent("No-show", "No-show", <UserX className="size-4" />)}
       </Button>
 
       <DeleteAppointmentDialog

@@ -16,10 +16,10 @@ import {
   UserPlus,
   Users,
   WalletCards,
+  ListChecks,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { clinicBrand } from "@/lib/brand";
 import StatusBadge from "@/components/appointments/StatusBadge";
 import DentalOdontogram from "@/components/dashboard/DentalOdontogram";
 import type { AppointmentStatus } from "@/types/appointment";
@@ -74,11 +74,11 @@ export default async function DashboardPage() {
     totalPatients,
     newPatients,
     treatmentPlans,
-    invoices,
+    invoiceTotals,
     payments,
     pendingAppointments,
     recentConversations,
-    activeServices,
+    overdueFollowUps,
   ] = await Promise.all([
     safeDashboardQuery("today appointments", [], () => prisma.appointment.findMany({
       where: {
@@ -117,17 +117,14 @@ export default async function DashboardPage() {
       },
     })),
 
-    safeDashboardQuery("monthly invoices", [], () => prisma.invoice.findMany({
+    safeDashboardQuery("monthly invoice totals", { _sum: { totalAmount: 0 } }, () => prisma.invoice.aggregate({
       where: {
         patient: { clinicId: user.clinicId },
         issueDate: {
           gte: monthStart,
         },
       },
-      select: {
-        id: true,
-        totalAmount: true,
-      },
+      _sum: { totalAmount: true },
     })),
 
     safeDashboardQuery("monthly payments", { _sum: { amount: 0 } }, () => prisma.payment.aggregate({
@@ -166,8 +163,11 @@ export default async function DashboardPage() {
         lastMessageAt: "desc",
       },
       take: 4,
-      include: {
+      select: {
+        id: true,
+        phone: true,
         messages: {
+          select: { content: true },
           orderBy: {
             createdAt: "desc",
           },
@@ -175,28 +175,13 @@ export default async function DashboardPage() {
         },
       },
     })),
-
-    safeDashboardQuery("active services", [], () => prisma.clinicService.findMany({
-      where: {
-        clinicId: user.clinicId,
-        active: true,
-      },
-      orderBy: [
-        {
-          sortOrder: "asc",
-        },
-        {
-          name: "asc",
-        },
-      ],
-      take: 12,
+    safeDashboardQuery("overdue follow-ups", 0, () => prisma.followUpTask.count({
+      where: { clinicId: user.clinicId, status: "PENDING", scheduledFor: { lte: new Date() } },
     })),
+
   ]);
 
-  const production = invoices.reduce(
-    (sum, invoice) => sum + invoice.totalAmount,
-    0
-  );
+  const production = invoiceTotals._sum.totalAmount ?? 0;
 
   const collections = payments._sum.amount ?? 0;
 
@@ -250,15 +235,15 @@ export default async function DashboardPage() {
       <section className="flex flex-col justify-between gap-4 rounded-[2rem] border border-white/80 bg-white/55 px-6 py-6 shadow-[0_18px_45px_rgba(72,105,152,.09)] backdrop-blur-sm lg:flex-row lg:items-center lg:px-8">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
-            {clinicBrand.clinicName}
+            Clinic command centre
           </p>
 
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-            HELLO DR. DEEPIKA
+            Today at a glance
           </h1>
 
           <p className="mt-2 text-slate-600">
-            Welcome back to Dr. Deepika&apos;s Dental White.
+            Prioritise patient care, booking recovery, and revenue-critical work.
           </p>
         </div>
 
@@ -276,54 +261,26 @@ export default async function DashboardPage() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-800 transition hover:bg-slate-50"
           >
             <UserPlus className="size-4" />
-            Manage leads
+            Review leads
+          </Link>
+          <Link
+            href="/dashboard/huddle"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-800 transition hover:bg-slate-50"
+          >
+            <ListChecks className="size-4" />
+            Today&apos;s priorities
           </Link>
         </div>
       </section>
 
-      {/* Clinic Services */}
-      <section>
-        <article className="demo-card p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold text-slate-950">
-                Clinic services
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Services shown to patients while booking appointments
-              </p>
-            </div>
-
-            <div className="grid size-12 place-items-center rounded-2xl bg-teal-50 text-teal-700">
-              <Stethoscope className="size-6" />
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            {activeServices.length ? (
-              activeServices.map((service) => (
-                <span
-                  key={service.id}
-                  className="rounded-full border border-teal-100 bg-teal-50 px-4 py-2 text-sm font-bold text-teal-800"
-                >
-                  {service.name}
-                </span>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500">
-                No active services yet.
-              </p>
-            )}
-          </div>
-
-          <Link
-            href="/dashboard/settings/operations"
-            className="mt-6 inline-flex text-sm font-bold text-teal-700 hover:underline"
-          >
-            Manage services
-          </Link>
-        </article>
+      <section className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div>
+          <p className="text-sm font-bold text-slate-900">Front-desk focus</p>
+          <p className="mt-1 text-sm text-slate-600">Confirm pending bookings, recover overdue follow-ups, and keep every patient record up to date.</p>
+        </div>
+        <Link href="/dashboard/follow-ups" className="inline-flex items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-amber-700">
+          {overdueFollowUps} overdue follow-up{overdueFollowUps === 1 ? "" : "s"}
+        </Link>
       </section>
 
       {/* Stats */}

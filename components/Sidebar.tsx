@@ -7,46 +7,40 @@ import { useEffect, useRef, useState } from "react";
 import {
   BarChart3,
   BellRing,
-  BotMessageSquare,
   CalendarDays,
-  ClipboardPenLine,
   ClipboardList,
-  CircleHelp,
-  Download,
   LayoutDashboard,
   MessagesSquare,
-  PhoneMissed,
   PackageCheck,
+  ClipboardCheck,
   ReceiptIndianRupee,
   Settings,
   Stethoscope,
   Users,
   UserRoundPlus,
-  Pill,
   Menu,
   X,
 } from "lucide-react";
 
-const navigation = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/leads", label: "Lead CRM", icon: UserRoundPlus },
-  { href: "/dashboard/ai-coach", label: "AI Coach", icon: BotMessageSquare },
-  { href: "/dashboard/conversations", label: "Conversations", icon: MessagesSquare },
-  { href: "/dashboard/missed-calls", label: "Missed calls", icon: PhoneMissed },
-  { href: "/dashboard/appointments", label: "Appointments", icon: ClipboardList },
-  { href: "/dashboard/patient-intake", label: "Patient intake", icon: ClipboardPenLine },
-  { href: "/dashboard/patients", label: "Patients", icon: Users },
-  { href: "/dashboard/clinical-records", label: "Clinical records", icon: Stethoscope },
-  { href: "/dashboard/prescriptions/new", label: "Prescriptions", icon: Pill },
-  { href: "/dashboard/clinical-workspace", label: "Clinical workspace", icon: Stethoscope },
-  { href: "/dashboard/treatment-plans", label: "Treatment plans", icon: ClipboardList },
-  { href: "/dashboard/billing", label: "Billing", icon: ReceiptIndianRupee },
-  { href: "/dashboard/operations", label: "Inventory & labs", icon: PackageCheck },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/dashboard/follow-ups", label: "Follow-ups", icon: BellRing },
-  { href: "/dashboard/exports", label: "Exports", icon: Download },
-  { href: "/dashboard/help", label: "Help", icon: CircleHelp },
+const navigationGroups = [
+  { label: "Workspace", items: [
+    { href: "/dashboard", label: "Today", icon: LayoutDashboard },
+    { href: "/dashboard/conversations", label: "Inbox", icon: MessagesSquare },
+    { href: "/dashboard/appointments", label: "Schedule", icon: CalendarDays },
+    { href: "/dashboard/huddle", label: "Today’s priorities", icon: ClipboardCheck },
+    { href: "/dashboard/patients", label: "Patients", icon: Users },
+  ] },
+  { label: "Patient care & revenue", items: [
+    { href: "/dashboard/clinical-workspace", label: "Clinical", icon: Stethoscope },
+    { href: "/dashboard/treatment-plans", label: "Treatment plans", icon: ClipboardList },
+    { href: "/dashboard/billing", label: "Revenue", icon: ReceiptIndianRupee },
+  ] },
+  { label: "Manage", items: [
+    { href: "/dashboard/leads", label: "Leads", icon: UserRoundPlus },
+    { href: "/dashboard/follow-ups", label: "Work queue", icon: BellRing },
+    { href: "/dashboard/operations", label: "Operations", icon: PackageCheck },
+    { href: "/dashboard/analytics", label: "Reports", icon: BarChart3 },
+  ] },
 ];
 
 export default function Sidebar({ role }: { role: string }) {
@@ -138,14 +132,17 @@ export default function Sidebar({ role }: { role: string }) {
 
       {/* =================== NAVIGATION =================== */}
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-6">
-        {navigation.map(({ href, label, icon: Icon }) => {
+      <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
+        {navigationGroups.map((group) => (
+          <div key={group.label} className="space-y-1">
+            <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{group.label}</p>
+            {group.items.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/dashboard"
               ? pathname === href
               : pathname.startsWith(href);
 
-          return (
+              return (
             <Link
               key={href}
               href={href}
@@ -163,8 +160,10 @@ export default function Sidebar({ role }: { role: string }) {
               <Icon className="h-5 w-5" />
               {label}
             </Link>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* =================== FOOTER =================== */}

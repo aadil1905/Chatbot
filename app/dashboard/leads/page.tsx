@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { BarChart3, CircleCheckBig, CircleX, Plus, RotateCcw, UserRoundPlus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import DeleteSubmitButton from "@/components/dashboard/DeleteSubmitButton";
 import { deleteLeadAction } from "@/app/dashboard/delete-actions";
 import { recoverLostLeadAction, saveLeadAction, updateLeadAction } from "./actions";
@@ -18,36 +18,41 @@ const stageStyles: Record<string, string> = {
   LOST: "bg-rose-100 text-rose-800",
 };
 
-type Search = { stage?: string; source?: string };
+type Search = { stage?: string; source?: string; owner?: string };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Search> }) {
-  const user = await requireUser();
+  const user = await requirePermission("manageSchedule");
   const filters = await searchParams;
   const selectedStage = stages.includes(filters.stage || "") ? filters.stage! : "";
   const selectedSource = sources.includes(filters.source || "") ? filters.source! : "";
+  const selectedOwner = Number(filters.owner) || 0;
   const where = {
     clinicId: user.clinicId,
     ...(selectedStage ? { stage: selectedStage } : {}),
     ...(selectedSource ? { source: selectedSource } : {}),
+    ...(selectedOwner ? { ownerId: selectedOwner } : {}),
   };
-  const [leads, stageCounts] = await Promise.all([
+  const [leads, stageCounts, staff] = await Promise.all([
     prisma.lead.findMany({
       where,
-      include: { activities: { orderBy: { createdAt: "desc" }, take: 1 } },
+      include: { owner: { select: { id: true, fullName: true } }, activities: { orderBy: { createdAt: "desc" }, take: 1 } },
       orderBy: { updatedAt: "desc" },
       take: 50,
     }),
     prisma.lead.groupBy({ by: ["stage"], where: { clinicId: user.clinicId }, _count: { stage: true } }),
+    prisma.user.findMany({ where: { clinicId: user.clinicId, active: true }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }),
   ]);
   const count = (stage: string) => stageCounts.find((lead) => lead.stage === stage)?._count.stage ?? 0;
   const converted = count("CONVERTED");
   const totalLeads = stageCounts.reduce((sum, lead) => sum + lead._count.stage, 0);
   const conversionRate = totalLeads ? Math.round((converted / totalLeads) * 100) : 0;
+  const overdue = leads.filter((lead) => lead.nextFollowUpAt && lead.nextFollowUpAt < new Date() && !["CONVERTED", "LOST"].includes(lead.stage)).length;
+  const pipelineValue = leads.reduce((sum, lead) => sum + (lead.conversionValue ?? 0), 0);
   const cards = [
     { label: "New enquiries", value: count("NEW"), icon: UserRoundPlus, tone: "bg-sky-50 text-sky-700" },
     { label: "Booked", value: count("BOOKED"), icon: CircleCheckBig, tone: "bg-amber-50 text-amber-700" },
     { label: "Converted", value: converted, icon: BarChart3, tone: "bg-emerald-50 text-emerald-700" },
-    { label: "Lost", value: count("LOST"), icon: CircleX, tone: "bg-rose-50 text-rose-700" },
+    { label: "Overdue actions", value: overdue, icon: CircleX, tone: "bg-rose-50 text-rose-700" },
   ];
 
   return (
@@ -80,7 +85,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">Conversion health</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{conversionRate}% of all saved enquiries are marked converted.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{conversionRate}% of all saved enquiries are marked converted. Pipeline value: ₹{pipelineValue.toLocaleString("en-IN")}.</p>
           </div>
           <span className="rounded-xl bg-emerald-50 px-4 py-2 text-xl font-bold text-emerald-700">{conversionRate}%</span>
         </div>
@@ -124,10 +129,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <option value="">All sources</option>
                 {sources.map((source) => <option key={source}>{source}</option>)}
               </select>
+              <select name="owner" defaultValue={selectedOwner || ""} className="h-10 rounded-lg border bg-card px-3 text-sm">
+                <option value="">All owners</option>
+                {staff.map((member) => <option key={member.id} value={member.id}>{member.fullName}</option>)}
+              </select>
               <button className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-700">
                 Apply
               </button>
-              <a href="/dashboard/leads" className="h-10 rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">
+                      <a href="/dashboard/leads" className="h-10 rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">
                 Clear
               </a>
             </form>
@@ -149,6 +158,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       {lead.phone} · {lead.source}
                       {lead.serviceInterest ? ` · ${lead.serviceInterest}` : ""}
                     </p>
+                    <p className="mt-2 text-xs font-semibold text-slate-600">Owner: {lead.owner?.fullName ?? "Unassigned"}{lead.nextFollowUpAt ? ` · Next action ${lead.nextFollowUpAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}` : " · No next action"}</p>
+                    {lead.nextFollowUpAt && lead.nextFollowUpAt < new Date() && !["CONVERTED", "LOST"].includes(lead.stage) && <p className="mt-2 inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700">Action overdue</p>}
                     <p className="mt-2 text-sm">{lead.notes || "No notes added."}</p>
                     <p className="mt-2 text-xs text-muted-foreground">
                       Last activity: {lead.activities[0]?.content || "No activity"}
@@ -157,6 +168,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   <div className="flex min-w-0 flex-col gap-2 xl:w-[430px]">
                     <form action={updateLeadAction} className="grid gap-2 sm:grid-cols-2">
                       <input type="hidden" name="id" value={lead.id} />
+                      <select name="ownerId" defaultValue={lead.ownerId ?? ""} className="h-10 rounded-lg border bg-card px-3 text-sm">
+                        <option value="">Unassigned</option>
+                        {staff.map((member) => <option key={member.id} value={member.id}>{member.fullName}</option>)}
+                      </select>
                       <select name="stage" defaultValue={lead.stage} className="h-10 rounded-lg border bg-card px-3 text-sm">
                         {stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
                       </select>

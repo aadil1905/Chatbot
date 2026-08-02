@@ -1,1 +1,3 @@
-export default function LoadingPatients() { return <div className="space-y-6 animate-pulse"><div className="h-9 w-40 rounded bg-muted" /><div className="h-10 max-w-xl rounded bg-muted" /><div className="h-96 rounded-lg bg-muted" /></div>; }
+import FeatureLoading from "@/components/dashboard/FeatureLoading";
+
+export default function LoadingPatients() { return <FeatureLoading title="Loading patient records" columns={3} />; }

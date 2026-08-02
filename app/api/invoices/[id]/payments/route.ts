@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { paymentSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 
 class InvoiceNotFoundError extends Error {}
 class PaymentExceedsOutstandingError extends Error {}
@@ -12,7 +12,7 @@ const MAX_TRANSACTION_ATTEMPTS = 3;
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageBilling");
     if (!user) return response;
     const { id } = await context.params;
     const invoiceId = Number(id);
@@ -32,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           if (paidSoFar + data.amount > invoice.totalAmount) throw new PaymentExceedsOutstandingError();
 
           const created = await tx.payment.create({
-            data: { invoiceId, amount: data.amount, method: data.method, paidAt: new Date(data.paidAt), notes: data.notes || null },
+            data: { invoiceId, amount: data.amount, method: data.method, paidAt: new Date(data.paidAt), notes: data.notes || null, recordedBy: user.fullName },
           });
           const status = paidSoFar + data.amount === invoice.totalAmount ? "Paid" : "Partially Paid";
           await tx.invoice.update({ where: { id: invoiceId }, data: { status } });

@@ -1,0 +1,47 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const root = process.cwd();
+const requiredPaths = [
+  "app",
+  "components",
+  "lib",
+  "prisma/schema.prisma",
+  "components/ui/button.tsx",
+  "components/ui/dialog.tsx",
+];
+
+const deprecatedRootFiles = [
+  "AppointmentForm.tsx",
+  "PatientForm.tsx",
+  "PaymentForm.tsx",
+  "button.tsx",
+  "dialog.tsx",
+  "prisma.ts",
+  "validations.ts",
+];
+
+for (const path of requiredPaths) {
+  if (!existsSync(join(root, path))) {
+    throw new Error(`Required application boundary is missing: ${path}`);
+  }
+}
+
+const tsconfig = readFileSync(join(root, "tsconfig.json"), "utf8");
+if (/"\*\.tsx"/.test(tsconfig)) {
+  throw new Error("tsconfig.json must not exclude all TSX files from type-checking.");
+}
+
+const prismaConfig = readFileSync(join(root, "prisma.config.ts"), "utf8");
+if (!prismaConfig.includes('schema: "prisma/schema.prisma"')) {
+  throw new Error("Prisma must use prisma/schema.prisma as its single active schema.");
+}
+
+const presentLegacyFiles = deprecatedRootFiles.filter((path) => existsSync(join(root, path)));
+if (presentLegacyFiles.length > 0) {
+  console.warn(
+    `Legacy root copies are present and ignored by the active application: ${presentLegacyFiles.join(", ")}`,
+  );
+}
+
+console.log("Architecture boundaries verified.");

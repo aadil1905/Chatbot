@@ -22,13 +22,20 @@ model Appointment {
   reminderSentAt  DateTime?
   treatment       String
   patientId       Int?
+  providerId      Int?
+  chairId         Int?
   archivedAt      DateTime?
   clinic          Clinic    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   patient         Patient?  @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  provider        ClinicProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  chair           ClinicChair? @relation(fields: [chairId], references: [id], onDelete: SetNull)
   lead            Lead?
 
   @@index([clinicId, archivedAt, appointmentDate])
+  @@index([clinicId, status, appointmentDate, appointmentTime])
   @@index([patientId])
+  @@index([clinicId, providerId, appointmentDate])
+  @@index([clinicId, chairId, appointmentDate])
 }
 
 model Patient {
@@ -55,6 +62,7 @@ model Patient {
 
   @@unique([clinicId, phone])
   @@index([clinicId, fullName])
+  @@index([clinicId, createdAt])
   @@index([fullName])
 }
 
@@ -85,6 +93,7 @@ model Payment {
   method    String
   paidAt    DateTime @default(now())
   notes     String?
+  recordedBy String?
   createdAt DateTime @default(now())
   invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -153,9 +162,24 @@ model TreatmentPlan {
   labCases      LabCase[]
   service       ClinicService?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   selectedTeeth TreatmentPlanTooth[]
+  items         TreatmentPlanItem[]
 
   @@index([patientId, status])
   @@index([patientId, visitDate])
+  @@index([serviceId])
+}
+
+model TreatmentPlanItem {
+  id              Int           @id @default(autoincrement())
+  treatmentPlanId Int
+  serviceId       Int?
+  name            String
+  price           Int
+  createdAt       DateTime      @default(now())
+  treatmentPlan   TreatmentPlan @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+  service         ClinicService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([treatmentPlanId])
   @@index([serviceId])
 }
 
@@ -207,8 +231,32 @@ model Clinic {
   launchChecklist ClinicLaunchChecklist?
   intakeRequests  PatientIntakeRequest[]
   appointments    Appointment[]
+  providers       ClinicProvider[]
+  chairs          ClinicChair[]
   patients        Patient[]
   auditLogs       AuditLog[]
+}
+
+model ClinicProvider {
+  id          Int           @id @default(autoincrement())
+  clinicId    Int
+  name        String
+  active      Boolean       @default(true)
+  appointments Appointment[]
+  clinic      Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, name])
+}
+
+model ClinicChair {
+  id          Int           @id @default(autoincrement())
+  clinicId    Int
+  name        String
+  active      Boolean       @default(true)
+  appointments Appointment[]
+  clinic      Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, name])
 }
 
 model User {
@@ -224,6 +272,8 @@ model User {
   clinic       Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   sessions     Session[]
   auditLogs    AuditLog[]
+  ownedLeads   Lead[]     @relation("LeadOwner")
+  assignedConversations WhatsAppConversation[] @relation("ConversationAssignee")
 
   @@index([clinicId, role])
 }
@@ -251,6 +301,7 @@ model ClinicService {
   updatedAt       DateTime        @updatedAt
   clinic          Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   treatmentPlans  TreatmentPlan[]
+  treatmentPlanItems TreatmentPlanItem[]
 
   @@index([clinicId, active, sortOrder])
 }
@@ -297,10 +348,12 @@ model Lead {
   recoveredAt         DateTime?
   lastContactedAt     DateTime?
   nextFollowUpAt      DateTime?
+  ownerId             Int?
   bookedAppointmentId Int?           @unique
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
   clinic              Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  owner               User?          @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   bookedAppointment   Appointment?   @relation(fields: [bookedAppointmentId], references: [id], onDelete: SetNull)
   activities          LeadActivity[]
   followUpTasks       FollowUpTask[]
@@ -308,6 +361,7 @@ model Lead {
   @@unique([clinicId, phone])
   @@index([clinicId, stage, createdAt])
   @@index([clinicId, nextFollowUpAt])
+  @@index([clinicId, ownerId, nextFollowUpAt])
 }
 
 model LeadActivity {
@@ -357,15 +411,20 @@ model WhatsAppConversation {
   clinicId      Int
   phone         String
   language      String?
+  status        String            @default("OPEN")
+  label         String?
+  assignedUserId Int?
   lastMessageAt DateTime          @default(now())
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   clinic        Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  assignedUser  User?             @relation("ConversationAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
   messages      WhatsAppMessage[]
   booking       WhatsAppBooking?
 
   @@unique([clinicId, phone])
   @@index([clinicId, lastMessageAt])
+  @@index([clinicId, status, assignedUserId])
 }
 
 model WhatsAppMessage {
@@ -427,13 +486,60 @@ model InventoryItem {
   quantity     Int      @default(0)
   reorderLevel Int      @default(0)
   costPerUnit  Int?
+  supplier     String?
+  batchNumber  String?
+  expiryDate   DateTime?
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   clinic       Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  movements    InventoryMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@unique([clinicId, name])
   @@index([clinicId, active, quantity])
+}
+
+model InventoryMovement {
+  id              Int           @id @default(autoincrement())
+  inventoryItemId Int
+  clinicId        Int
+  quantityChange  Int
+  type            String
+  notes           String?
+  patientId       Int?
+  treatmentPlanId Int?
+  recordedBy      String?
+  createdAt       DateTime      @default(now())
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, createdAt])
+  @@index([inventoryItemId, createdAt])
+}
+
+model PurchaseOrder {
+  id          Int                 @id @default(autoincrement())
+  clinicId    Int
+  supplier    String
+  status      String              @default("DRAFT")
+  notes       String?
+  createdBy   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  items       PurchaseOrderItem[]
+
+  @@index([clinicId, status, createdAt])
+}
+
+model PurchaseOrderItem {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int
+  inventoryItemId Int
+  quantity        Int
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([purchaseOrderId, inventoryItemId])
 }
 
 model LabCase {

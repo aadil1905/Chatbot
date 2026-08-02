@@ -13,5 +13,11 @@ export default function PageIntro({
   description,
   descriptionMarginClassName = "mt-1",
 }: PageIntroProps) {
-  return <div><p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">{eyebrow}</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1><p className={`${descriptionMarginClassName} text-muted-foreground`}>{description}</p></div>;
+  return (
+    <header className="dashboard-page-header">
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">{eyebrow}</p>
+      <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
+      <p className={`${descriptionMarginClassName} max-w-3xl text-muted-foreground`}>{description}</p>
+    </header>
+  );
 }

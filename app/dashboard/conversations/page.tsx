@@ -1,35 +1,40 @@
 import { MessagesSquare, Phone, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import DeleteSubmitButton from "@/components/dashboard/DeleteSubmitButton";
 import { deleteConversationAction } from "@/app/dashboard/delete-actions";
+import { updateConversationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function ConversationsPage() {
   const user = await requireUser();
-  const conversations = await prisma.whatsAppConversation.findMany({
+  const [conversations, staff] = await Promise.all([prisma.whatsAppConversation.findMany({
     where: { clinicId: user.clinicId },
     include: {
-      booking: true,
+      booking: true, assignedUser: { select: { id: true, fullName: true } },
       messages: { orderBy: { createdAt: "desc" }, take: 1 },
     },
     orderBy: { lastMessageAt: "desc" },
     take: 30,
-  });
+  }), prisma.user.findMany({ where: { clinicId: user.clinicId, active: true }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } })]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">WhatsApp workspace</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Conversations</h1>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Inbox</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Patient conversations</h1>
           <p className="mt-2 text-muted-foreground">
-            Saved WhatsApp enquiries, replies, language choices, and unfinished bookings.
+            WhatsApp enquiries and unfinished bookings. Use the work queue for callbacks, no-shows, and overdue patient outreach.
           </p>
         </div>
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          <span className="font-bold text-foreground">{conversations.length}</span> saved conversations
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/follow-ups" className="inline-flex items-center rounded-xl border bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Open work queue</Link>
+          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            <span className="font-bold text-foreground">{conversations.length}</span> saved conversations
+          </div>
         </div>
       </header>
 
@@ -67,6 +72,10 @@ export default async function ConversationsPage() {
                         <Sparkles className="size-4 text-primary" />
                         Last activity {conversation.lastMessageAt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                       </span>
+                      <Link href={`/dashboard/patient-intake?name=${encodeURIComponent(conversation.booking?.patientName || "")}&phone=${encodeURIComponent(conversation.phone)}`} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-primary transition hover:bg-primary/5">Start intake</Link>
+                      <Link href="/dashboard/appointments/new" className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90">Book appointment</Link>
+                      <Link href="/dashboard/follow-ups" className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50">Add follow-up</Link>
+                      <form action={updateConversationAction} className="flex gap-1"><input type="hidden" name="id" value={conversation.id} /><select name="assignedUserId" defaultValue={conversation.assignedUserId ?? ""} className="rounded-lg border bg-white px-2 py-1 text-xs"><option value="">Unassigned</option>{staff.map((member) => <option key={member.id} value={member.id}>{member.fullName}</option>)}</select><input name="label" defaultValue={conversation.label ?? ""} placeholder="Label" className="w-20 rounded-lg border px-2 text-xs"/><input type="hidden" name="status" value={conversation.status === "OPEN" ? "RESOLVED" : "OPEN"}/><button className="rounded-lg border px-2 text-xs font-bold">{conversation.status === "OPEN" ? "Resolve" : "Reopen"}</button></form>
                       <form action={deleteConversationAction}>
                         <input type="hidden" name="id" value={conversation.id} />
                         <DeleteSubmitButton confirmMessage={`Delete WhatsApp conversation ${conversation.phone}?`} />

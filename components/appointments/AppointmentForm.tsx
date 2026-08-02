@@ -28,16 +28,40 @@ type AppointmentFormProps = {
   defaultValues?: Partial<AppointmentFormValues>;
   appointmentId?: number;
   mode?: "create" | "edit";
+  providers?: Array<{ id: number; name: string }>;
+  chairs?: Array<{ id: number; name: string }>;
+  returnTo?: string;
 };
+
+const timeHours = Array.from({ length: 12 }, (_, index) => String(index + 1));
+const timeMinutes = ["00", "15", "30", "45"];
+
+function toTimeParts(time: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return { hour: "", minute: "", period: "AM" as const };
+  const hour24 = Number(match[1]);
+  return { hour: String(hour24 % 12 || 12), minute: match[2], period: hour24 >= 12 ? "PM" as const : "AM" as const };
+}
+
+function toTwentyFourHourTime(hour: string, minute: string, period: "AM" | "PM") {
+  if (!hour || !minute) return "";
+  const hour12 = Number(hour);
+  const hour24 = period === "PM" ? (hour12 % 12) + 12 : hour12 % 12;
+  return `${String(hour24).padStart(2, "0")}:${minute}`;
+}
 
 export default function AppointmentForm({
   defaultValues,
   appointmentId,
   mode = "create",
+  providers = [],
+  chairs = [],
+  returnTo,
 }: AppointmentFormProps) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
+  const [knownPatient, setKnownPatient] = useState<string | null>(null);
 
   const {
     register,
@@ -55,17 +79,17 @@ export default function AppointmentForm({
      appointmentDate:
   defaultValues?.appointmentDate ?? "",
 
-      appointmentTime:
-        defaultValues?.appointmentTime ?? "",
+      appointmentTime: defaultValues?.appointmentTime ?? "09:00",
 
-      treatment:
-        defaultValues?.treatment === "Follow up" ? "Follow up" : defaultValues?.treatment === "New Consultation" ? "New Consultation" : "New Consultation",
+      treatment: defaultValues?.treatment ?? "New Consultation",
 
       status:
         defaultValues?.status ?? "Pending",
 
       notes:
         defaultValues?.notes ?? "",
+      providerId: defaultValues?.providerId ?? null,
+      chairId: defaultValues?.chairId ?? null,
     },
   });
 
@@ -74,7 +98,28 @@ export default function AppointmentForm({
   }, [register]);
 
   const status = useWatch({ control, name: "status" });
-  const treatment = useWatch({ control, name: "treatment" });
+  const phone = useWatch({ control, name: "phone" });
+  const appointmentTime = useWatch({ control, name: "appointmentTime" });
+  const timeParts = toTimeParts(appointmentTime);
+
+  function updateAppointmentTime(next: Partial<typeof timeParts>) {
+    const hour = next.hour ?? timeParts.hour;
+    const minute = next.minute ?? timeParts.minute;
+    const period = next.period ?? timeParts.period;
+    setValue("appointmentTime", toTwentyFourHourTime(hour, minute, period), { shouldValidate: true, shouldDirty: true });
+  }
+
+  useEffect(() => {
+    const cleanPhone = (phone || "").replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10 || mode === "edit") return;
+    const timer = window.setTimeout(async () => {
+      const response = await fetch(`/api/patients?phone=${cleanPhone}`);
+      const body = await response.json();
+      if (body.patient) { setKnownPatient(body.patient.fullName); setValue("patientName", body.patient.fullName, { shouldDirty: true }); setValue("treatment", "Follow Up", { shouldDirty: true }); }
+      else { setKnownPatient(null); setValue("treatment", "New Consultation", { shouldDirty: true }); }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [phone, mode, setValue]);
 
   async function onSubmit(
     values: AppointmentFormValues
@@ -122,7 +167,7 @@ export default function AppointmentForm({
         });
         router.push(`/dashboard/patient-intake?${query.toString()}`);
       } else {
-        router.push("/dashboard/appointments");
+        router.push(returnTo || "/dashboard/appointments");
       }
 
       router.refresh();
@@ -163,6 +208,7 @@ export default function AppointmentForm({
             className="h-11 rounded-xl bg-white"
             {...register("patientName")}
           />
+          {knownPatient ? <p className="text-xs font-medium text-emerald-700">Existing patient found · follow-up selected</p> : null}
 
           {errors.patientName && (
             <p className="text-sm text-destructive">
@@ -212,11 +258,12 @@ export default function AppointmentForm({
             Appointment time <span className="text-red-500">*</span>
           </label>
 
-          <Input
-  type="time"
-  className="h-11 rounded-xl bg-white"
-  {...register("appointmentTime")}
-/>
+          <div className="grid grid-cols-3 gap-2">
+            <select aria-label="Appointment hour" value={timeParts.hour} onChange={(event) => updateAppointmentTime({ hour: event.target.value })} className="h-11 rounded-xl border bg-white px-3 text-sm"><option value="">Hour</option>{timeHours.map((hour) => <option key={hour} value={hour}>{hour}</option>)}</select>
+            <select aria-label="Appointment minute" value={timeParts.minute} onChange={(event) => updateAppointmentTime({ minute: event.target.value })} className="h-11 rounded-xl border bg-white px-3 text-sm"><option value="">Minute</option>{timeMinutes.map((minute) => <option key={minute} value={minute}>{minute}</option>)}</select>
+            <select aria-label="Appointment period" value={timeParts.period} onChange={(event) => updateAppointmentTime({ period: event.target.value as "AM" | "PM" })} className="h-11 rounded-xl border bg-white px-3 text-sm"><option value="AM">AM</option><option value="PM">PM</option></select>
+          </div>
+          <input type="hidden" {...register("appointmentTime")} />
 
           {errors.appointmentTime && (
             <p className="text-sm text-destructive">
@@ -230,28 +277,7 @@ export default function AppointmentForm({
             Reason for visit
           </label>
 
-          <Select
-            value={treatment}
-            onValueChange={(value) =>
-              setValue("treatment", value as AppointmentFormValues["treatment"], {
-                shouldValidate: true,
-                shouldDirty: true,
-              })
-            }
-          >
-            <SelectTrigger className="h-11 w-full rounded-xl bg-white">
-              <SelectValue placeholder="Select reason" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="New Consultation">
-                New Consultation
-              </SelectItem>
-              <SelectItem value="Follow up">
-                Follow up
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <input type="hidden" {...register("treatment")} />
+          <select className="h-11 w-full rounded-xl border bg-white px-3" {...register("treatment")}><option>New Consultation</option><option>Follow Up</option><option>Emergency</option><option>Cleaning</option><option>RCT</option><option>Crown</option><option>Other</option></select>
 
           {errors.treatment && (
             <p className="text-sm text-destructive">
@@ -298,6 +324,9 @@ export default function AppointmentForm({
               <SelectItem value="Cancelled">
                 Cancelled
               </SelectItem>
+              <SelectItem value="No-show">
+                No-show
+              </SelectItem>
             </SelectContent>
           </Select>
 
@@ -312,6 +341,14 @@ export default function AppointmentForm({
             </p>
           )}
         </div>
+
+        <label className="space-y-2 text-sm font-semibold text-slate-800">Provider
+          <select {...register("providerId", { setValueAs: (value) => value ? Number(value) : null })} className="h-11 w-full rounded-xl border bg-white px-3"><option value="">Unassigned</option>{providers.map((provider) => <option key={provider.id} value={provider.id}>{provider.name}</option>)}</select>
+        </label>
+
+        <label className="space-y-2 text-sm font-semibold text-slate-800">Chair
+          <select {...register("chairId", { setValueAs: (value) => value ? Number(value) : null })} className="h-11 w-full rounded-xl border bg-white px-3"><option value="">Unassigned</option>{chairs.map((chair) => <option key={chair.id} value={chair.id}>{chair.name}</option>)}</select>
+        </label>
       </div>
             <div className="space-y-2">
         <label className="text-sm font-semibold text-slate-800">
@@ -340,7 +377,7 @@ export default function AppointmentForm({
           disabled={loading}
           className="h-11 rounded-xl px-5"
           onClick={() =>
-            router.push("/dashboard/appointments")
+            router.push(returnTo || "/dashboard/appointments")
           }
         >
           Cancel

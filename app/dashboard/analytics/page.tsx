@@ -8,7 +8,7 @@ import {
   TrendingUp,
   UserPlus,
 } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ function startOfDay(input = new Date()) {
 }
 
 export default async function AnalyticsPage() {
-  const user = await requireUser();
+  const user = await requirePermission("manageBilling");
   const today = startOfDay();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -33,11 +33,12 @@ export default async function AnalyticsPage() {
   const [
     yesterdayPayments,
     monthPayments,
-    pendingInvoices,
+    openInvoices,
     missedAppointments,
     newPatients,
-    leads,
-    inventory,
+    convertedLeads,
+    totalLeads,
+    lowStock,
     treatmentPlans,
   ] = await Promise.all([
     prisma.payment.aggregate({
@@ -48,10 +49,9 @@ export default async function AnalyticsPage() {
       where: { invoice: { patient: { clinicId: user.clinicId } }, paidAt: { gte: monthStart } },
       _sum: { amount: true },
     }),
-    prisma.invoice.aggregate({
-      where: { patient: { clinicId: user.clinicId }, status: { not: "Paid" } },
-      _sum: { totalAmount: true },
-      _count: { id: true },
+    prisma.invoice.findMany({
+      where: { patient: { clinicId: user.clinicId } },
+      select: { id: true, totalAmount: true, payments: { select: { amount: true } } },
     }),
     prisma.appointment.count({
       where: {
@@ -61,14 +61,9 @@ export default async function AnalyticsPage() {
       },
     }),
     prisma.patient.count({ where: { clinicId: user.clinicId, createdAt: { gte: monthStart } } }),
-    prisma.lead.findMany({
-      where: { clinicId: user.clinicId },
-      select: { stage: true },
-    }),
-    prisma.inventoryItem.findMany({
-      where: { clinicId: user.clinicId, active: true },
-      select: { quantity: true, reorderLevel: true },
-    }),
+    prisma.lead.count({ where: { clinicId: user.clinicId, stage: "CONVERTED" } }),
+    prisma.lead.count({ where: { clinicId: user.clinicId } }),
+    prisma.inventoryItem.count({ where: { clinicId: user.clinicId, active: true, quantity: { lte: prisma.inventoryItem.fields.reorderLevel } } }),
     prisma.treatmentPlan.groupBy({
       by: ["title"],
       where: { patient: { clinicId: user.clinicId }, createdAt: { gte: monthStart } },
@@ -78,9 +73,9 @@ export default async function AnalyticsPage() {
     }),
   ]);
 
-  const convertedLeads = leads.filter((lead) => lead.stage === "CONVERTED").length;
-  const conversionRate = percentage(convertedLeads, leads.length);
-  const lowStock = inventory.filter((item) => item.quantity <= item.reorderLevel).length;
+  const conversionRate = percentage(convertedLeads, totalLeads);
+  const pendingInvoiceCount = openInvoices.filter((invoice) => invoice.payments.reduce((total, payment) => total + payment.amount, 0) < invoice.totalAmount).length;
+  const outstandingRevenue = openInvoices.reduce((total, invoice) => total + invoice.totalAmount - invoice.payments.reduce((paid, payment) => paid + payment.amount, 0), 0);
 
   const cards = [
     {
@@ -92,8 +87,8 @@ export default async function AnalyticsPage() {
     },
     {
       label: "Pending payments",
-      value: currency(pendingInvoices._sum.totalAmount ?? 0),
-      help: `${pendingInvoices._count.id} unpaid invoice(s)`,
+      value: currency(outstandingRevenue),
+      help: `${pendingInvoiceCount} invoice balance(s) to collect`,
       icon: ReceiptIndianRupee,
       tone: "bg-amber-50 text-amber-800",
     },
@@ -114,7 +109,7 @@ export default async function AnalyticsPage() {
     {
       label: "Lead conversion",
       value: `${conversionRate}%`,
-      help: `${convertedLeads} of ${leads.length} enquiries converted`,
+      help: `${convertedLeads} of ${totalLeads} enquiries converted`,
       icon: TrendingUp,
       tone: "bg-violet-50 text-violet-700",
     },
@@ -149,6 +144,7 @@ export default async function AnalyticsPage() {
           <p className="mt-1 text-3xl font-bold text-slate-950">
             {currency(monthPayments._sum.amount ?? 0)}
           </p>
+          <Link href="/dashboard/exports" className="mt-3 inline-flex text-sm font-bold text-primary hover:underline">Export report data</Link>
         </div>
       </header>
 
@@ -204,7 +200,7 @@ export default async function AnalyticsPage() {
             <Link href="/dashboard/billing" className="block rounded-xl border p-4 transition hover:bg-amber-50">
               <p className="font-semibold">Collect pending payments</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Review {pendingInvoices._count.id} invoice(s) worth {currency(pendingInvoices._sum.totalAmount ?? 0)}.
+                Review {pendingInvoiceCount} invoice balance(s) worth {currency(outstandingRevenue)}.
               </p>
             </Link>
             <Link href="/dashboard/appointments" className="block rounded-xl border p-4 transition hover:bg-rose-50">

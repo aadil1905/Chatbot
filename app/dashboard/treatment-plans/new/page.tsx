@@ -13,8 +13,9 @@ const appointmentSelect = {
   status: true,
 };
 
-export default async function NewTreatmentPlanPage() {
+export default async function NewTreatmentPlanPage({ searchParams }: { searchParams: Promise<{ patientId?: string; visitDate?: string }> }) {
   const user = await requireUser();
+  const { patientId, visitDate } = await searchParams;
   const [patients, services] = await Promise.all([
     prisma.patient.findMany({
       where: { clinicId: user.clinicId },
@@ -40,7 +41,7 @@ export default async function NewTreatmentPlanPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageIntro eyebrow="Treatment planning" title="New treatment plan" description="Attach the plan and cost to a completed appointment date." />
-      <TreatmentPlanForm patients={patients} services={services} />
+      <TreatmentPlanForm patients={patients} services={services} initialPatientId={patientId || ""} initialVisit={visitDate} />
     </div>
   );
 }

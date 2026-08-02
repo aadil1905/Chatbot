@@ -1,0 +1,12 @@
+ALTER TABLE "Appointment" ADD COLUMN "providerId" INTEGER;
+ALTER TABLE "Appointment" ADD COLUMN "chairId" INTEGER;
+CREATE TABLE "ClinicProvider" ("id" SERIAL NOT NULL, "clinicId" INTEGER NOT NULL, "name" TEXT NOT NULL, "active" BOOLEAN NOT NULL DEFAULT true, CONSTRAINT "ClinicProvider_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ClinicChair" ("id" SERIAL NOT NULL, "clinicId" INTEGER NOT NULL, "name" TEXT NOT NULL, "active" BOOLEAN NOT NULL DEFAULT true, CONSTRAINT "ClinicChair_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "ClinicProvider_clinicId_name_key" ON "ClinicProvider"("clinicId", "name");
+CREATE UNIQUE INDEX "ClinicChair_clinicId_name_key" ON "ClinicChair"("clinicId", "name");
+CREATE INDEX "Appointment_clinicId_providerId_appointmentDate_idx" ON "Appointment"("clinicId", "providerId", "appointmentDate");
+CREATE INDEX "Appointment_clinicId_chairId_appointmentDate_idx" ON "Appointment"("clinicId", "chairId", "appointmentDate");
+ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "ClinicProvider"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_chairId_fkey" FOREIGN KEY ("chairId") REFERENCES "ClinicChair"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ClinicProvider" ADD CONSTRAINT "ClinicProvider_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ClinicChair" ADD CONSTRAINT "ClinicChair_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -42,3 +42,9 @@ next-env.d.ts
 
 /app/generated/prisma
 .npm-cache/
+
+# Historical delivery snapshots belong outside the deployable application.
+/update-packages/
+/DentalAI-Premium-v1.0-Build-Fix-Appointment-20260722/
+/DentalAI-Premium-v1.0-Client-Demo-UI-20260722171553/
+/DentalAI-Premium-v1.0-Package-10-Clinical-Chart-Interactions-QA-Verified/

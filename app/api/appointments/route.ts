@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { appointmentSchema } from "@/lib/validations";
 import { getCurrentUser } from "@/lib/auth";
 import { ZodError } from "zod";
+import { findScheduleConflict } from "@/lib/schedule-conflicts";
 
 export async function GET() {
   try {
@@ -25,7 +26,14 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
     const data = appointmentSchema.parse(body);
+    const providerId = data.providerId ? Number(data.providerId) : null;
+    const chairId = data.chairId ? Number(data.chairId) : null;
     const phone = data.phone.replace(/\D/g, "").slice(-10);
+    const conflict = await findScheduleConflict({ clinicId: user.clinicId, appointmentDate: new Date(data.appointmentDate), appointmentTime: data.appointmentTime, providerId, chairId });
+    if (conflict) {
+      const resource = conflict.provider?.name || conflict.chair?.name || "the selected resource";
+      return NextResponse.json({ error: `${resource} is already booked at this time for ${conflict.patientName}.` }, { status: 409 });
+    }
     const patient = await prisma.patient.upsert({
           where: { clinicId_phone: { clinicId: user.clinicId, phone } },
           update: { fullName: data.patientName },
@@ -46,6 +54,8 @@ export async function POST(req: Request) {
         treatment: data.treatment,
         status: data.status,
         notes: data.notes,
+        providerId,
+        chairId,
         patientId: patient.id,
         source: "Reception",
       },

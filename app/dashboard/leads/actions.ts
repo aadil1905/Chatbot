@@ -18,7 +18,7 @@ export async function saveLeadAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase() || null;
   const lead = await prisma.lead.upsert({
     where: { clinicId_phone: { clinicId: user.clinicId, phone } },
-    create: { clinicId: user.clinicId, fullName, phone, email, source, serviceInterest, notes, activities: { create: { type: "LEAD_CREATED", content: `Lead added from ${source}` } } },
+    create: { clinicId: user.clinicId, ownerId: user.id, fullName, phone, email, source, serviceInterest, notes, activities: { create: { type: "LEAD_CREATED", content: `Lead added from ${source}` } } },
     update: { fullName, email, source, serviceInterest, notes },
   });
   await prisma.leadActivity.create({ data: { leadId: lead.id, type: "LEAD_UPDATED", content: "Lead details updated" } });
@@ -36,11 +36,14 @@ export async function updateLeadAction(formData: FormData) {
   const nextFollowUpAt = followUp ? new Date(followUp) : null;
   const conversionValueInput = String(formData.get("conversionValue") || "").trim();
   const conversionValueNumber = Number(conversionValueInput);
+  const ownerIdInput = String(formData.get("ownerId") || "");
+  const ownerId = ownerIdInput ? Number(ownerIdInput) : null;
   const existing = await prisma.lead.findFirst({ where: { id, clinicId: user.clinicId }, select: { stage: true } });
   if (!existing) return;
   const contactStages = ["CONTACTED", "BOOKED", "VISITED", "CONVERTED"];
   const recovered = existing.stage === "LOST" && stage !== "LOST";
-  const result = await prisma.lead.updateMany({ where: { id, clinicId: user.clinicId }, data: { stage, lossReason: stage === "LOST" ? lossReason : null, notes, nextFollowUpAt, lastContactedAt: contactStages.includes(stage) ? new Date() : undefined, recoveredAt: recovered ? new Date() : undefined, conversionValue: stage === "CONVERTED" && Number.isFinite(conversionValueNumber) && conversionValueNumber >= 0 ? Math.round(conversionValueNumber) : undefined } });
+  const validOwner = ownerId ? await prisma.user.findFirst({ where: { id: ownerId, clinicId: user.clinicId, active: true }, select: { id: true } }) : null;
+  const result = await prisma.lead.updateMany({ where: { id, clinicId: user.clinicId }, data: { stage, ownerId: validOwner?.id ?? null, lossReason: stage === "LOST" ? lossReason : null, notes, nextFollowUpAt, lastContactedAt: contactStages.includes(stage) ? new Date() : undefined, recoveredAt: recovered ? new Date() : undefined, conversionValue: stage === "CONVERTED" && Number.isFinite(conversionValueNumber) && conversionValueNumber >= 0 ? Math.round(conversionValueNumber) : undefined } });
   if (result.count) {
     await prisma.leadActivity.create({ data: { leadId: id, type: "STAGE_CHANGED", content: `Lead moved to ${stage}` } });
     if (recovered) await prisma.leadActivity.create({ data: { leadId: id, type: "LEAD_RECOVERED", content: "Lead was recovered from Lost" } });

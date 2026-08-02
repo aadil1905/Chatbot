@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { formatClinicInformation, getClinicConfiguration } from "@/lib/clinic-config";
 import { prisma } from "@/lib/prisma";
 import { sendTextMessage } from "@/lib/whatsapp";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageBilling");
     if (!user) return response;
     const { id } = await context.params;
     const invoiceId = Number(id);

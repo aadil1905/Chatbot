@@ -37,11 +37,12 @@ export async function generateFollowUpTasks(clinicId: number) {
       take: 100,
     }),
     prisma.patient.findMany({
-      include: { appointments: { orderBy: { appointmentDate: "desc" }, take: 1 } },
+      where: { clinicId },
+      include: { appointments: { where: { archivedAt: null }, orderBy: { appointmentDate: "desc" }, take: 1 } },
       take: 300,
     }),
     prisma.appointment.findMany({
-      where: { status: { in: ["Pending", "Confirmed"] }, appointmentDate: { lt: now } },
+      where: { clinicId, archivedAt: null, status: { in: ["Pending", "Confirmed", "No-show"] }, appointmentDate: { lt: now } },
       take: 100,
     }),
   ]);

@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { prescriptionSchema } from "@/lib/validations";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 import { findCompletedAppointment, localDate } from "@/lib/clinical-appointments";
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageClinical");
     if (!user) return response;
     const data = prescriptionSchema.parse(await request.json());
     const patient = await prisma.patient.findFirst({ where: { id: data.patientId, clinicId: user.clinicId }, select: { id: true } });

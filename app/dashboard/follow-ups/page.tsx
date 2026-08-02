@@ -1,5 +1,6 @@
 import { BellRing, CheckCircle2, Clock3, MessageCircle, RefreshCw, UserRoundPlus } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import Link from "next/link";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import DeleteSubmitButton from "@/components/dashboard/DeleteSubmitButton";
 import { deleteFollowUpAction } from "@/app/dashboard/delete-actions";
@@ -19,7 +20,7 @@ const typeStyle: Record<string, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function FollowUpsPage() {
-  const user = await requireUser();
+  const user = await requirePermission("manageSchedule");
   const tasks = await prisma.followUpTask.findMany({
     where: { clinicId: user.clinicId },
     orderBy: [{ status: "asc" }, { scheduledFor: "desc" }],
@@ -38,17 +39,17 @@ export default async function FollowUpsPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Patient communication</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Follow-up centre</h1>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Work queue</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Follow-ups and recovery</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Create a safe queue for enquiries that did not book, missed appointments, and patients due for a check-up.
+            One staff-owned queue for unbooked enquiries, missed appointments, and patients due for a check-up.
           </p>
         </div>
-        <form action={generateFollowUpsAction}>
+        <div className="flex flex-wrap gap-2"><Link href="/dashboard/conversations" className="inline-flex h-11 items-center rounded-xl border bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Open inbox</Link><form action={generateFollowUpsAction}>
           <button className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
-            <RefreshCw className="size-4" />Refresh follow-up queue
+            <RefreshCw className="size-4" />Refresh queue
           </button>
-        </form>
+        </form></div>
       </header>
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">

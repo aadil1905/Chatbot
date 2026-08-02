@@ -57,11 +57,11 @@ export default async function PatientClinicalWorkspace({
   searchParams,
 }: {
   params: Promise<{ patientId: string }>;
-  searchParams: Promise<{ visitDate?: string }>;
+  searchParams: Promise<{ visitDate?: string; fromPatient?: string }>;
 }) {
   const user = await requireUser();
   const { patientId } = await params;
-  const { visitDate } = await searchParams;
+  const { visitDate, fromPatient } = await searchParams;
   const id = Number(patientId);
 
   const patient = await prisma.patient.findFirst({
@@ -124,11 +124,11 @@ export default async function PatientClinicalWorkspace({
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link
-            href="/dashboard/clinical-workspace"
+            href={fromPatient === "1" ? `/dashboard/patients/${patient.id}?visit=${selectedVisitDate}` : "/dashboard/clinical-workspace"}
             className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
           >
             <ArrowLeft className="size-4" />
-            Clinical workspace
+            {fromPatient === "1" ? "Back to patient" : "Clinical workspace"}
           </Link>
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
             {patient.fullName}
@@ -147,7 +147,7 @@ export default async function PatientClinicalWorkspace({
       </header>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
           <div>
             <h2 className="flex items-center gap-2 text-xl font-bold text-slate-900">
               <CalendarDays className="size-5 text-primary" />
@@ -158,27 +158,6 @@ export default async function PatientClinicalWorkspace({
               workspace is attached to that appointment date in Patient Summary.
             </p>
           </div>
-          <form className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <select
-              name="visitDate"
-              defaultValue={selectedVisitDate}
-              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
-              disabled={!hasCompletedAppointmentDates}
-            >
-              {hasCompletedAppointmentDates ? (
-                visitDates.map((item) => (
-                  <option key={item} value={item}>
-                    {formatDate(new Date(`${item}T00:00:00.000+05:30`))}
-                  </option>
-                ))
-              ) : (
-                <option value={selectedVisitDate}>No appointment date found</option>
-              )}
-            </select>
-            <button className="h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-              Use this date
-            </button>
-          </form>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">

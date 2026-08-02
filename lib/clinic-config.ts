@@ -10,6 +10,7 @@ export const defaultServices = [
   { name: "Gum Treatment", description: "Gum health consultation and treatment", durationMinutes: 45, sortOrder: 7 },
   { name: "Extractions", description: "Tooth extraction consultation and procedure", durationMinutes: 45, sortOrder: 8 },
   { name: "Surgeries", description: "Dental and oral surgical consultation", durationMinutes: 60, sortOrder: 9 },
+  { name: "X-Ray", description: "Dental X-Ray imaging and review", durationMinutes: 20, sortOrder: 10 },
 ];
 
 export const defaultHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({

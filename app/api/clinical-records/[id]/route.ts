@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { clinicalRecordSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 import { findCompletedAppointment, localDate } from "@/lib/clinical-appointments";
 
 async function getId(params: Promise<{ id: string }>) {
@@ -19,7 +19,7 @@ function optionalText(value?: string) {
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageClinical");
     if (!user) return response;
     const id = await getId(params);
     if (!id) return NextResponse.json({ error: "Invalid record id." }, { status: 400 });
@@ -78,7 +78,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageClinical");
   if (!user) return response;
   const id = await getId(params);
   if (!id) return NextResponse.json({ error: "Invalid record id." }, { status: 400 });

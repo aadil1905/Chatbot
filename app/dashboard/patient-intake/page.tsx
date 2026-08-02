@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardPenLine, FileHeart, ShieldCheck } from "lucide-react";
+import { ClipboardPenLine, FileHeart } from "lucide-react";
 import PatientIntakeWizard from "@/components/patients/PatientIntakeWizard";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +14,6 @@ const intakeSteps = [
     title: "Patient completes form",
     description: "The patient selects allergies and medical history, accepts the terms, and signs on their phone.",
     icon: FileHeart,
-  },
-  {
-    title: "Clinic review and estimate",
-    description: "Reception reviews completion, then records the proposed treatment and estimate before saving.",
-    icon: ShieldCheck,
   },
 ];
 
@@ -49,7 +44,7 @@ export default async function PatientIntakePage({ searchParams }: { searchParams
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2">
         {intakeSteps.map(({ title, description, icon: Icon }, index) => (
           <article key={title} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-start gap-4">

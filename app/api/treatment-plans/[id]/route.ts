@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { treatmentPlanSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-import { requireApiUser } from "@/lib/tenant";
+import { requireApiPermission } from "@/lib/tenant";
 import { findCompletedAppointment, localDate } from "@/lib/clinical-appointments";
 
 async function getId(params: Promise<{ id: string }>) {
@@ -13,7 +13,7 @@ async function getId(params: Promise<{ id: string }>) {
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageClinical");
     if (!user) return response;
     const id = await getId(params);
     if (!id) return NextResponse.json({ error: "Invalid plan id." }, { status: 400 });
@@ -21,7 +21,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const existingPlan = await prisma.treatmentPlan.findFirst({ where: { id, patient: { clinicId: user.clinicId } } });
     if (!existingPlan) return NextResponse.json({ error: "Plan not found." }, { status: 404 });
 
-    const { patientId: requestedPatientId, serviceId, toothNumber, unitPrice, estimatedCost, notes, visitDate, ...data } = treatmentPlanSchema.partial().parse(await request.json());
+    const { patientId: requestedPatientId, serviceId, toothNumber, toothNumbers, unitPrice, estimatedCost, notes, visitDate, items, ...data } = treatmentPlanSchema.partial().parse(await request.json());
     const patientId = requestedPatientId ?? existingPlan.patientId;
     if (requestedPatientId) {
       const patient = await prisma.patient.findFirst({ where: { id: requestedPatientId, clinicId: user.clinicId }, select: { id: true } });
@@ -30,6 +30,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (serviceId) {
       const service = await prisma.clinicService.findFirst({ where: { id: serviceId, clinicId: user.clinicId }, select: { id: true } });
       if (!service) return NextResponse.json({ error: "Service not found." }, { status: 404 });
+    }
+    if (items) for (const item of items) {
+      if (!item.serviceId) continue;
+      const service = await prisma.clinicService.findFirst({ where: { id: item.serviceId, clinicId: user.clinicId }, select: { id: true } });
+      if (!service) return NextResponse.json({ error: "One of the selected services was not found." }, { status: 404 });
     }
 
     if (visitDate) {
@@ -42,16 +47,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     }
 
+    const selectedToothNumbers = toothNumbers ? Array.from(new Set([...toothNumbers, toothNumber || ""].map((tooth) => tooth.trim()).filter(Boolean))) : undefined;
     const plan = await prisma.treatmentPlan.update({
       where: { id },
       data: {
         ...data,
         visitDate: visitDate ? localDate(visitDate) : undefined,
         serviceId: serviceId === "" ? null : serviceId,
-        toothNumber: toothNumber === "" ? null : toothNumber,
+        toothNumber: selectedToothNumbers ? selectedToothNumbers[0] || null : toothNumber === "" ? null : toothNumber,
         unitPrice: unitPrice === "" ? null : unitPrice,
-        estimatedCost: estimatedCost === "" ? null : estimatedCost,
         notes: notes === "" ? null : notes,
+        estimatedCost: items ? items.reduce((sum, item) => sum + item.price, 0) : estimatedCost === "" ? null : estimatedCost,
+        selectedTeeth: selectedToothNumbers ? { deleteMany: {}, create: selectedToothNumbers.map((toothNumber) => ({ toothNumber })) } : undefined,
+        items: items ? { deleteMany: {}, create: items.map((item) => ({ serviceId: item.serviceId || null, name: item.name, price: item.price })) } : undefined,
       },
     });
     return NextResponse.json(plan);
@@ -62,7 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { user, response } = await requireApiUser();
+    const { user, response } = await requireApiPermission("manageClinical");
   if (!user) return response;
   const id = await getId(params);
   if (!id) return NextResponse.json({ error: "Invalid plan id." }, { status: 400 });
